@@ -1,25 +1,26 @@
 # Olympic Sports Action Recognition
 
-Triển khai theo Introduction và phương pháp trong bản
-`output/olympic_sports_class_report.tex` của thư mục dự án phía trên
-(bản báo cáo mới nhất). Pipeline Python độc lập với notebook cũ.
+This implementation follows the Introduction and methodology in the latest
+project report, `output/olympic_sports_class_report.tex`, located in the parent
+project directory. The Python pipeline is independent of the original notebook.
 
-Hai câu hỏi nghiên cứu:
+The project addresses two research questions:
 
-- **RQ1:** Thêm motion vào ResNet có cải thiện phân loại không? So sánh D với B.
-- **RQ2:** ResNet pretrained có tốt hơn HOG, và chi phí trích đặc trưng khác nhau thế nào? So sánh B với A.
+- **RQ1:** Does adding motion features to ResNet improve classification? Compare D with B.
+- **RQ2:** Do pretrained ResNet features outperform HOG, and how do their feature extraction costs compare? Compare B with A.
 
-| ID | Đặc trưng video | Số chiều mặc định | Classifier |
+| ID | Video representation | Default dimensions | Classifier |
 |---|---|---:|---|
-| A | HOG trung bình, L2 | 6.084 | Linear SVM, one-vs-rest |
-| B | ResNet-18 ImageNet frozen, trung bình, L2 | 512 | Linear SVM, one-vs-rest |
-| C | Farnebäck flow, histogram hướng có trọng số magnitude, trung bình, L2 | 32 | Linear SVM, one-vs-rest |
-| D | Ghép B và C sau khi chuẩn hóa từng block | 544 | Linear SVM, one-vs-rest |
+| A | Mean HOG descriptors, L2-normalised | 6,084 | Linear SVM, one-vs-rest |
+| B | Mean frozen ImageNet ResNet-18 features, L2-normalised | 512 | Linear SVM, one-vs-rest |
+| C | Mean Farneback flow histograms with magnitude-weighted orientation votes, L2-normalised | 32 | Linear SVM, one-vs-rest |
+| D | Concatenated B and C features, with each block normalised separately | 544 | Linear SVM, one-vs-rest |
 
-## Chạy project
+## Running the project
 
-Cần **Python 3.11 trở lên**. Trong máy hiện tại, môi trường `.venv` đã được cài
-và có thể dùng ngay. Với máy mới, tạo môi trường bằng Python phù hợp:
+**Python 3.11 or later** is required. On the current development machine, the
+`.venv` environment is already installed and ready to use. On a new machine,
+create an environment with a compatible Python version:
 
 ```bash
 python3.12 -m venv .venv
@@ -28,177 +29,209 @@ python -m pip install -r requirements.lock.txt
 python -m pip install --no-deps -e .
 ```
 
-Từ thư mục repo:
+Run the following commands from the repository directory:
 
 ```bash
 source .venv/bin/activate
 
-# Tải release Stanford cùng train/test split chính thức; khoảng 5,2 GB archive.
-# Archive và các .seq giải nén được giữ lại trong data/ và không đưa lên Git.
+# Download the Stanford release and official train/test split (~5.45 GB of archives).
+# Archives and extracted .seq files are stored in data/ and excluded from Git.
 python scripts/download_dataset.py --workers 4
 
-# Tạo danh sách clip từ các file train/*.txt và test/*.txt.
+# Build the clip manifest from the train/*.txt and test/*.txt lists.
 olympic prepare
 
-# Kiểm tra file, đọc frame và tạo cache cho cả ba loại đặc trưng.
+# Audit files, decode frames, and cache all three feature types.
 olympic extract
 
-# Chọn C trên validation. Lệnh này chưa xuất kết quả test.
+# Select C on validation data. This command does not produce test results.
 MPLCONFIGDIR=.cache/matplotlib olympic experiment
 
-# Sau khi chốt preprocessing/sampling: fit toàn bộ train và đánh giá test.
+# After fixing preprocessing and sampling, fit on all training clips and evaluate the test set.
 MPLCONFIGDIR=.cache/matplotlib olympic experiment --evaluate-test
 
-# Nhận dạng một clip mới bằng model đã lưu.
+# Classify a new clip using a saved model.
 olympic predict /path/to/clip.seq --model runs/baseline/resnet_flow.joblib
 ```
 
-Trọng số ResNet-18 chính thức được tải lần đầu về `.cache/features/torch/`.
-Pipeline cần Internet khi tải dataset và trọng số, sau đó chạy được offline.
-Các quyết định của SVM là **decision scores**, không phải xác suất.
+Official ResNet-18 weights are downloaded to `.cache/features/torch/` on first
+use. Internet access is required to download the dataset and weights; subsequent
+runs can operate offline. SVM outputs are **decision scores**, not probabilities.
 
-Có thể chạy toàn bộ bằng một lệnh (thêm `--evaluate-test` sau khi chốt cấu hình):
+The entire pipeline can also be run with one command. Include `--evaluate-test`
+after finalising the configuration:
 
 ```bash
 MPLCONFIGDIR=.cache/matplotlib python scripts/run_pipeline.py --download --evaluate-test
 ```
 
-## Chuẩn bị và xử lý dữ liệu
+## Data preparation and preprocessing
 
-Nguồn: [Stanford Olympic Sports, release 2010.09.07](http://vision.stanford.edu/Datasets/OlympicSports/).
-Trang hiện tại truy cập được bằng HTTP; downloader dùng đúng URL archive được
-trang này công bố, giữ SHA-256 và URL trong `data/download_provenance.json`.
-Split đã kiểm tra: **649 train, 134 test**, 16 lớp.
-Không tạo một test split ngẫu nhiên mới.
+Source: [Stanford Olympic Sports, release 2010.09.07](http://vision.stanford.edu/Datasets/OlympicSports/).
+The dataset page was accessible over HTTP during the baseline run. The downloader
+uses the official archive URLs published on that page and records their SHA-256
+checksums and URLs in `data/download_provenance.json`.
+The verified split contains **649 training clips and 134 test clips** across
+16 classes. The pipeline preserves this split rather than creating a new random
+test partition.
 
-Reader đọc trực tiếp Norpix `.seq` 8-bit raw/JPEG/PNG, với frame padding 8 hoặc
-16 byte, dựa trên [đặc tả reader của Piotr's Toolbox](https://github.com/pdollar/toolbox/blob/master/videos/seqReaderPlugin.m).
-Không cần chuyển sang AVI. `.mp4`, `.avi`, `.mov`, `.mkv` cũng được hỗ trợ qua
-OpenCV nếu bạn dùng dữ liệu đã chuyển đổi.
+The reader directly supports 8-bit raw/JPEG/PNG Norpix `.seq` files with 8-byte
+or 16-byte frame padding, following the
+[reader specification in Piotr's Toolbox](https://github.com/pdollar/toolbox/blob/master/videos/seqReaderPlugin.m).
+Conversion to AVI is unnecessary. Converted `.mp4`, `.avi`, `.mov`, and `.mkv`
+files are also supported through OpenCV.
 
-Manifest có `clip_id,path,label,split`; đường dẫn tương đối được hiểu theo vị trí
-file manifest. `prepare` ánh xạ tên lớp trong split chính thức, bao gồm
-`platform 10m` → `diving_platform_10m` và `springboard 3m` → `diving_springboard_3m`.
-Tên thư mục viết nhầm `diving_platfrom_10m` trong archive Stanford cũng được
-ánh xạ sang nhãn đúng, không cần đổi tên dữ liệu gốc.
-Clip có cùng ID hoặc cùng đường dẫn ở nhiều dòng sẽ bị từ chối.
-SHA-256 giống nhau được ghi nhận là trùng nội dung và cả hai clip bị loại khỏi
-tất cả cấu hình. File thiếu, lỗi decode hoặc clip dưới 2 frame được ghi vào audit.
-Nếu một lớp biến mất khỏi train/validation/test, đánh giá sẽ dừng với lỗi rõ ràng.
+The manifest contains `clip_id,path,label,split`. Relative paths are resolved
+from the manifest's directory. `prepare` maps class names from the official split
+lists, including `platform 10m` to `diving_platform_10m` and `springboard 3m` to
+`diving_springboard_3m`. The misspelled folder name `diving_platfrom_10m` in the
+Stanford archive is also mapped to the correct label without renaming the source
+data.
 
-Với clip T frame, chọn tối đa K=10 chỉ số duy nhất trên `[0, T-2]`, theo khoảng
-cách đều. Appearance dùng frame tại mỗi chỉ số; flow dùng frame đó và frame
-gốc **liền sau**, không tính giữa hai frame cách xa trong danh sách sample.
-Tất cả ảnh resize trực tiếp về 224×224; HOG/flow dùng grayscale, ResNet dùng RGB
-và mean/std ImageNet. [Trọng số torchvision](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet18)
-được cố định ở `IMAGENET1K_V1`; resize trực tiếp theo đề cương thay vì dùng
-resize 256 + center crop mặc định của torchvision. Model ở `eval()`, không cập
-nhật weights hoặc batch-normalisation, không augmentation.
+Repeated clip IDs or file paths in the manifest are rejected. Matching SHA-256
+checksums identify exact duplicates, and both clips are excluded from every
+configuration. Missing files, decoding failures, and clips with fewer than two
+frames are recorded in the audit. Evaluation stops with a clear error if any
+class is absent from the training, validation, or test subset.
 
-## Protocol và đầu ra
+For a clip with T frames, up to K=10 unique indices are sampled uniformly from
+`[0, T-2]`. Appearance features use the frame at each sampled index. Optical flow
+uses that frame and its **immediately following original frame**, rather than two
+distant frames from the sampled list.
 
-`configs/baseline.json` lưu toàn bộ thiết lập. Validation là 20% **chỉ từ train**,
-stratified với seed 42. Mỗi cấu hình chọn C trong `{0.01, 0.1, 1, 10}` bằng mAP
-validation; nếu bằng nhau, chọn C nhỏ nhất. Sau khi chọn xong **cả bốn cấu hình**,
-fit lại trên toàn bộ official train rồi mới tính metrics trên official test.
+All frames are resized directly to 224x224 pixels. HOG and flow use grayscale
+images; ResNet uses RGB images and ImageNet mean/std normalisation. The
+[torchvision weights](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet18)
+are fixed to `IMAGENET1K_V1`. Direct resizing follows the proposal, rather than
+torchvision's default resize-to-256 and centre-crop transform. The model remains
+in `eval()` mode with frozen weights and batch-normalisation statistics. No data
+augmentation is applied.
 
-AP tính one-vs-rest bằng decision scores, mAP là trung bình AP của đủ 16 lớp.
-Accuracy lấy nhãn có score cao nhất; macro-F1 và confusion matrix dùng cùng
-thứ tự lớp. Các cấu hình dùng cùng giao các clip đọc được.
+## Experimental protocol and outputs
 
-| File | Nội dung |
+`configs/baseline.json` stores all settings. A stratified 20% validation subset
+is drawn **only from the training partition**, using seed 42. Each configuration
+selects C from `{0.01, 0.1, 1, 10}` using validation mAP; ties are resolved by
+choosing the smaller C. Model selection finishes for **all four configurations**
+before classifiers are refitted on the full official training partition and
+metrics are computed on the official test partition.
+
+AP is computed one-vs-rest from decision scores. mAP is the mean AP across all
+16 classes. Accuracy uses the class with the highest score; macro-F1 and confusion
+matrices follow the same class order. All configurations use the same common set
+of usable clips.
+
+| File | Contents |
 |---|---|
-| `runs/features_k10/audit.csv` | Metadata, sample indices, SHA-256, decode status, exclusion và cache hit |
-| `runs/features_k10/features.npz` | HOG, ResNet, flow, ID, label, official split và thời gian từng clip |
-| `runs/features_k10/extraction.json` | Config, versions, manifest và định nghĩa timing |
-| `runs/baseline/partitions.csv` | ID chính xác của fit, validation, test |
-| `runs/baseline/validation.json` | Kết quả grid C và C được chọn |
-| `runs/baseline/protocol.json` | Settings, hardware, versions, class counts và feature hash |
-| `runs/baseline/summary.csv` | mAP, accuracy, macro-F1, extraction/train/inference time cho A–D |
-| `runs/baseline/per_class_ap.csv` | AP và số mẫu test của từng lớp |
-| `runs/baseline/predictions.csv` | Nhãn và decision scores cho từng clip, từng cấu hình |
-| `runs/baseline/*_confusion.csv/png` | Confusion matrix chuẩn hóa theo hàng |
-| `runs/baseline/*_metrics.json` | Metrics và cả confusion counts nguyên gốc |
-| `runs/baseline/*.joblib` | Classifier, method, class order và preprocessing config |
-| `runs/baseline/research_questions.json` | D−B, B−A và majority-class accuracy baseline |
-| `runs/baseline/error_review.csv` | Tối đa 10 lỗi ưu tiên đa dạng lớp, để ghi quan sát thủ công |
-| `runs/baseline/error_frames.png` | Frame thật để xem các lỗi của B/D, có ID và nguồn Stanford/YouTube |
+| `runs/features_k10/audit.csv` | Metadata, sampled indices, SHA-256 checksums, decode status, exclusions, and cache hits |
+| `runs/features_k10/features.npz` | HOG, ResNet, and flow features; clip IDs, labels, official splits, and per-clip timings |
+| `runs/features_k10/extraction.json` | Configuration, library versions, manifest, and timing definitions |
+| `runs/baseline/partitions.csv` | Exact clip IDs for the fitting, validation, and test subsets |
+| `runs/baseline/validation.json` | C-grid results and selected C values |
+| `runs/baseline/protocol.json` | Settings, hardware, library versions, class counts, and feature hash |
+| `runs/baseline/summary.csv` | mAP, accuracy, macro-F1, and extraction/training/inference timings for A-D |
+| `runs/baseline/per_class_ap.csv` | AP and test sample counts for each class |
+| `runs/baseline/predictions.csv` | Labels and decision scores for every test clip and configuration |
+| `runs/baseline/*_confusion.csv/png` | Row-normalised confusion matrices |
+| `runs/baseline/*_metrics.json` | Metrics and original confusion counts |
+| `runs/baseline/*.joblib` | Classifiers, methods, class order, and preprocessing configuration |
+| `runs/baseline/research_questions.json` | D-B and B-A comparisons, plus majority-class baseline accuracy |
+| `runs/baseline/error_review.csv` | Up to 10 errors, prioritising class diversity, with manual observations |
+| `runs/baseline/error_frames.png` | Actual sampled frames for inspecting B/D errors, with clip IDs and Stanford/YouTube attribution |
 
-Chỉ nạp `.joblib` do bạn hoặc pipeline này tạo. Chi phí trích đặc trưng gồm
-resize, normalization, descriptor và pooling; decode và khởi tạo/warmup ResNet
-được tách riêng. Cache giữ thời gian cold run gốc để không đánh đồng đọc cache
-với tốc độ trích đặc trưng. D tái sử dụng B/C; extraction cost của D là tổng
-B+C, không bao gồm copy ghép vector. `estimated_full_seconds_per_clip` là
-ước lượng cộng decode + extraction + cached SVM inference, không phải phép đo
-latency end-to-end riêng. Thời gian inference đo theo batch test.
+Load only `.joblib` files created by you or this pipeline. Feature extraction
+timing includes resizing, normalisation, descriptor computation, and pooling.
+Decoding and ResNet initialisation/warmup are timed separately. Cached features
+retain the original cold-run timings so cache access is not mistaken for feature
+extraction speed.
 
-Reader SEQ kiểm tra các record của toàn clip và decode các frame được sample;
-không khẳng định đã decode mọi frame. Video thông thường được đọc hai lượt để
-đếm frame thực tế và lấy sample; timing decode giữa hai kiểu format có thể khác.
-CPU là mặc định để benchmark thống nhất. Có thể đổi `device` sang `mps` hoặc
-`cuda` trên phần cứng phù hợp; kết quả giữa thiết bị không được coi là cùng benchmark.
+D reuses B and C features. Its extraction cost is the sum of B and C, excluding
+the vector concatenation copy. `estimated_full_seconds_per_clip` adds decoding,
+extraction, and cached-feature SVM inference; it is an estimate rather than a
+separate end-to-end latency measurement. Inference timing is measured over the
+test batch.
 
-## Ablation K=5 trên validation (tùy chọn)
+The SEQ reader checks frame records throughout each clip and decodes sampled
+frames; it does not decode every frame. Other video formats are read twice to
+count actual frames and retrieve the samples, so decoding timings can differ
+between formats.
 
-Tạo bản sao config, đổi `samples` thành 5 và dùng output riêng:
+CPU is the default for consistent benchmarking. Set `device` to `mps` or `cuda`
+on compatible hardware if desired. Results from different devices should be
+reported as separate benchmarks.
+
+## Optional K=5 validation ablation
+
+Copy the configuration, set `samples` to 5, and use separate output directories:
 
 ```bash
 olympic extract --config configs/k5.json --output runs/features_k5
 olympic experiment --config configs/k5.json --features runs/features_k5/features.npz --output runs/validation_k5
 ```
 
-So sánh B/D với K=10 trên validation để chốt K trước khi đánh giá test.
-Không dùng test để quyết định K. Việc đổi config hoặc phiên bản thư viện tạo
-cache key khác; vector cũ không được tái sử dụng với preprocessing khác.
+Compare B and D against K=10 on validation data to select K before evaluating
+the test set. Do not use test results to select K. Changing the configuration
+or library versions creates a different cache key, preventing reuse of vectors
+computed with different preprocessing settings.
 
-## Kiểm thử
+## Tests
 
 ```bash
 MPLCONFIGDIR=.cache/matplotlib python -m pytest -q
 ```
 
-Tests kiểm tra SEQ raw/JPEG, padding, truncation, clip ngắn, sampling liền kề,
-histogram hướng/magnitude, chuẩn hóa zero-motion, chống trùng manifest,
-train-only model selection, thứ tự score và xuất metrics/model/artifacts.
-Kiểm thử tổng hợp phục vụ kiểm chứng code; số liệu nghiên cứu phải chạy từ
-dataset Stanford thật. Nhận xét lỗi về camera motion, background và pose cần
-được xác nhận bằng quan sát clip, không suy ra chỉ từ bảng confusion.
+Tests cover raw/JPEG SEQ files, padding, truncation, short clips, adjacent-frame
+sampling, orientation/magnitude histograms, zero-motion normalisation, duplicate
+manifest entries, training-only model selection, score ordering, and exported
+metrics, models, and artifacts.
 
-## Kết quả baseline đã chạy ngày 14/10/2026
+Synthetic tests verify the implementation. Research results must use the actual
+Stanford dataset. Explanations involving camera motion, background cues, or poses
+require inspection of the clips; confusion matrices alone do not establish the
+causes of errors.
 
-Đã tải và xử lý đủ **783/783 clip**, không thiếu file, lỗi decode hoặc trùng
-SHA-256. Giữ **649 train / 134 test**; validation gồm 130 clip từ train, fit
-gồm 519 clip. Chạy CPU, một thread, seed 42, K=10, không fine-tune ResNet.
+## Baseline results from 14 October 2026
 
-| Cấu hình | C chọn bằng validation | Test mAP | Test accuracy | Macro-F1 | Extraction / clip |
+All **783/783 clips** were downloaded and processed, with no missing files,
+decoding failures, or duplicate SHA-256 checksums. The official **649 train /
+134 test** split was preserved. Validation used 130 training clips, leaving
+519 clips for fitting candidate classifiers. The experiment used CPU execution
+with one thread, seed 42, K=10, and no ResNet fine-tuning.
+
+| Configuration | C selected on validation | Test mAP | Test accuracy | Macro-F1 | Extraction per clip |
 |---|---:|---:|---:|---:|---:|
-| A: HOG | 10 | 47,42% | 41,79% | 39,42% | 22,35 ms |
-| B: ResNet-18 | 10 | 69,24% | 62,69% | 58,85% | 93,34 ms |
-| C: Flow | 1 | 37,11% | 35,82% | 32,62% | 33,22 ms |
-| D: ResNet + flow | 10 | 68,49% | 62,69% | 59,69% | 126,56 ms |
+| A: HOG | 10 | 47.42% | 41.79% | 39.42% | 22.35 ms |
+| B: ResNet-18 | 10 | 69.24% | 62.69% | 58.85% | 93.34 ms |
+| C: Flow | 1 | 37.11% | 35.82% | 32.62% | 33.22 ms |
+| D: ResNet + flow | 10 | 68.49% | 62.69% | 59.69% | 126.56 ms |
 
-**RQ1:** Thêm flow giảm mAP 0,75 điểm phần trăm, accuracy giữ nguyên
-(84/134 clip đúng ở cả B và D), macro-F1 tăng 0,84 điểm. D sửa được 8 dự đoán
-sai của B nhưng cũng làm sai 8 dự đoán B vốn đúng. Lần chạy này chưa ủng hộ
-giả thuyết motion cải thiện mAP tổng thể; tác dụng thay đổi theo lớp.
-AP tăng ở javelin throw (+55,43 điểm), high jump (+18,85), platform diving
-(+8,06), nhưng giảm ở triple jump (−24,25), snatch (−21,22) và pole vault
-(−12,10). Javelin và triple jump chỉ có 4 clip test mỗi lớp, nên thay đổi AP
-của những lớp này cần được đọc cùng số mẫu.
+**RQ1:** Adding flow reduced mAP by 0.75 percentage points. Accuracy was unchanged
+(84/134 correct predictions for both B and D), while macro-F1 increased by
+0.84 percentage points. D corrected eight errors made by B but also introduced
+eight errors on clips B had classified correctly. This run therefore does not
+support the hypothesis that motion improves overall mAP; its effect varies
+across classes.
 
-**RQ2:** ResNet tăng mAP 21,82 điểm phần trăm và accuracy 20,90 điểm so với
-HOG. Đổi lại, extraction trung bình chậm hơn khoảng 4,18 lần trên máy CPU
-này. Majority-class baseline từ train đạt test accuracy 7,46%.
+AP increased for javelin throw (+55.43 percentage points), high jump (+18.85),
+and platform diving (+8.06), but decreased for triple jump (-24.25), snatch
+(-21.22), and pole vault (-12.10). Javelin throw and triple jump each have only
+four test clips, so these AP changes should be interpreted alongside the sample
+counts.
 
-Trong confusion matrix của B, hammer throw thường bị nhận là discus throw;
-clean and jerk bị nhầm với snatch; triple jump bị nhầm với long jump.
-Các frame lỗi đã xem cho thấy có vận động viên nhỏ trong khung hình, ảnh mờ,
-và những cảnh sân thi đấu hoặc khu vực diving trông tương tự nhau. Đây là
-quan sát trên frame minh họa, chưa chứng minh nguyên nhân lỗi hoặc ảnh hưởng
-của camera motion. `runs/baseline/error_review.csv` ghi từng quan sát để nhóm
-tiếp tục đối chiếu toàn clip.
+**RQ2:** ResNet increased mAP by 21.82 percentage points and accuracy by
+20.90 percentage points compared with HOG. Its average feature extraction cost
+was approximately 4.18 times higher on this CPU. The majority-class predictor
+selected from the training labels achieved 7.46% test accuracy.
 
-Model D đã được nạp lại và dự đoán trực tiếp từ một clip `.seq`; decision
-scores khớp với scores đã lưu lúc đánh giá. **21 kiểm thử đạt**.
-Kết quả chi tiết nằm trong `runs/baseline/`; dữ liệu, cache và kết quả lớn
-được giữ local, không đưa vào Git.
+B's confusion matrix shows frequent confusion between hammer throw and discus
+throw, clean and jerk and snatch, and triple jump and long jump. The inspected
+error frames show small athletes, blurred images, and similar sports venues or
+diving areas. These are observations from illustrative frames; they do not
+establish the causes of errors or the influence of camera motion.
+`runs/baseline/error_review.csv` records individual observations for further
+inspection of the complete clips.
+
+Model D was reloaded and used to predict directly from a `.seq` clip. Its decision
+scores matched those saved during evaluation. **All 21 tests passed.** Detailed
+results are stored in `runs/baseline/`. Dataset files, caches, and large result
+artifacts are kept locally and excluded from Git.
