@@ -140,7 +140,7 @@ def run_experiment(feature_file, output, config, evaluate_test=False, classes=CL
         "config": config.to_dict(), "classes": list(classes), "extraction": extraction,
         "feature_sha256": feature_digest,
         "hardware": {"platform": platform.platform(), "processor": platform.processor(),
-                     "device": config.device, "cpu_threads": 1},
+                     "python": platform.python_version(), "device": config.device, "cpu_threads": 1},
         "class_counts": {split: dict(Counter(labels[splits == split])) for split in ("train", "test")},
         "selection_counts": {"fit": len(fit), "validation": len(validation)},
         "test_evaluated": evaluate_test,
@@ -150,9 +150,10 @@ def run_experiment(feature_file, output, config, evaluate_test=False, classes=CL
     for name, features in matrix.items():
         chosen_c = validation_results[name]["selected_C"]
         model, train_seconds = fit_classifier(features[train], labels[train], chosen_c, config)
-        started = perf_counter()
-        scores = decision_scores(model, features[test], classes)
-        inference = (perf_counter() - started) / len(test)
+        with threadpool_limits(limits=1):
+            started = perf_counter()
+            scores = decision_scores(model, features[test], classes)
+            inference = (perf_counter() - started) / len(test)
         result, predicted = metrics(labels[test], scores, classes)
         all_metrics[name], all_predictions[name] = result, predicted
         joblib.dump({"classifier": model, "classes": classes, "method": name,
@@ -210,4 +211,7 @@ def run_experiment(feature_file, output, config, evaluate_test=False, classes=CL
             chosen.append(row)
     write_csv(output / "error_review.csv", chosen,
               ["clip_id", "true_label", "resnet_prediction", "fusion_prediction", "models_disagree", "manual_observation"])
+    if extraction.get("source_manifest"):
+        from .error_gallery import save_error_gallery
+        save_error_gallery(chosen, extraction["source_manifest"], output, config.samples)
     return summary

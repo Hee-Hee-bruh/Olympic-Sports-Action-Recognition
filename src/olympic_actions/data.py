@@ -16,6 +16,7 @@ CLASSES = (
     "diving_springboard_3m", "tennis_serve", "triple_jump", "vault",
 )
 ALIASES = {"platform_10m": "diving_platform_10m", "springboard_3m": "diving_springboard_3m",
+           "diving_platfrom_10m": "diving_platform_10m",  # Typo in Stanford's archive folder.
            "platform_diving": "diving_platform_10m", "springboard_diving": "diving_springboard_3m",
            "gymnastic_vault": "vault"}
 VIDEO_SUFFIXES = {".seq", ".avi", ".mp4", ".mov", ".mkv"}

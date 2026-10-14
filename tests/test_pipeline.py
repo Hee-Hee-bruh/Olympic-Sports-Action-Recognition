@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from olympic_actions.config import Config
-from olympic_actions.data import Clip, SeqReader, load_manifest, read_sampled_pairs, sample_indices, write_csv
+from olympic_actions.data import Clip, SeqReader, load_manifest, official_manifest, read_sampled_pairs, sample_indices, write_csv
 from olympic_actions.experiment import decision_scores, metrics, run_experiment, select_c, validation_indices
 from olympic_actions.features import flow_feature, flow_histogram, hog_feature, l2
 
@@ -175,3 +175,76 @@ def test_validation_mode_never_exports_test_predictions(tmp_path, monkeypatch):
     run_experiment(bundle, tmp_path / "result", config, False, classes)
     assert not (tmp_path / "result" / "predictions.csv").exists()
     assert not json.loads((tmp_path / "result" / "protocol.json").read_text())["test_evaluated"]
+
+
+def fake_resnet(monkeypatch):
+    from olympic_actions import features
+    class Extractor:
+        calls = 0
+        def __init__(self, config, cache):
+            pass
+        def sync(self):
+            pass
+        def __call__(self, pairs):
+            Extractor.calls += 1
+            return np.ones(512, dtype=np.float32) / np.sqrt(512)
+    monkeypatch.setattr(features, "ResNetExtractor", Extractor)
+    return Extractor
+
+
+def test_cache_reuses_original_timings_and_invalidates_changed_settings(tmp_path, monkeypatch):
+    from olympic_actions.features import extract
+    model = fake_resnet(monkeypatch)
+    path = tmp_path / "clip.seq"
+    make_seq(path)
+    clips = [Clip("example", path, "bowling", "train")]
+    output, cache = tmp_path / "output", tmp_path / "cache"
+    extract(clips, Config(), output, cache)
+    with np.load(output / "features.npz") as saved:
+        first_times = saved["times"].copy()
+    extract(clips, Config(), output, cache)
+    assert model.calls == 1
+    with np.load(output / "features.npz") as saved:
+        np.testing.assert_array_equal(first_times, saved["times"])
+    extract(clips, Config(samples=5), output, cache)
+    assert model.calls == 2 and len(list(cache.glob("*.npz"))) == 2
+
+
+def test_exact_duplicate_content_is_excluded_from_all_methods(tmp_path, monkeypatch):
+    from olympic_actions.features import extract
+    fake_resnet(monkeypatch)
+    first, duplicate, other = (tmp_path / name for name in ("first.seq", "duplicate.seq", "other.seq"))
+    make_seq(first)
+    duplicate.write_bytes(first.read_bytes())
+    make_seq(other, count=8)
+    clips = [Clip("first", first, "bowling", "train"), Clip("duplicate", duplicate, "bowling", "test"),
+             Clip("other", other, "bowling", "train")]
+    output = tmp_path / "output"
+    extract(clips, Config(), output, tmp_path / "cache")
+    with np.load(output / "features.npz") as saved:
+        assert saved["clip_ids"].tolist() == ["other"]
+        assert all(len(saved[name]) == 1 for name in ("hog", "resnet", "flow"))
+    import csv
+    with (output / "audit.csv").open() as source:
+        audit = list(csv.DictReader(source))
+    assert [row["status"] for row in audit] == ["duplicate", "duplicate", "ok"]
+
+
+def test_missing_class_does_not_produce_misleading_map():
+    labels = np.array(["bowling", "bowling"])
+    with pytest.raises(ValueError, match="every class"):
+        metrics(labels, np.ones((2, 3)), ("bowling", "high_jump", "long_jump"))
+
+
+def test_official_platform_archive_typo_maps_to_correct_split_label(tmp_path):
+    videos = tmp_path / "videos" / "diving_platfrom_10m"
+    videos.mkdir(parents=True)
+    (videos / "train_clip.seq").touch()
+    (videos / "test_clip.seq").touch()
+    for split in ("train", "test"):
+        folder = tmp_path / "splits" / split
+        folder.mkdir(parents=True)
+        (folder / "platform 10m.txt").write_text(f"{split}_clip\n")
+    clips = official_manifest(tmp_path / "videos", tmp_path / "splits", tmp_path / "manifest.csv")
+    assert [clip.label for clip in clips] == ["diving_platform_10m"] * 2
+    assert all(clip.path.exists() for clip in clips)

@@ -57,6 +57,12 @@ Trọng số ResNet-18 chính thức được tải lần đầu về `.cache/fe
 Pipeline cần Internet khi tải dataset và trọng số, sau đó chạy được offline.
 Các quyết định của SVM là **decision scores**, không phải xác suất.
 
+Có thể chạy toàn bộ bằng một lệnh (thêm `--evaluate-test` sau khi chốt cấu hình):
+
+```bash
+MPLCONFIGDIR=.cache/matplotlib python scripts/run_pipeline.py --download --evaluate-test
+```
+
 ## Chuẩn bị và xử lý dữ liệu
 
 Nguồn: [Stanford Olympic Sports, release 2010.09.07](http://vision.stanford.edu/Datasets/OlympicSports/).
@@ -73,6 +79,8 @@ OpenCV nếu bạn dùng dữ liệu đã chuyển đổi.
 Manifest có `clip_id,path,label,split`; đường dẫn tương đối được hiểu theo vị trí
 file manifest. `prepare` ánh xạ tên lớp trong split chính thức, bao gồm
 `platform 10m` → `diving_platform_10m` và `springboard 3m` → `diving_springboard_3m`.
+Tên thư mục viết nhầm `diving_platfrom_10m` trong archive Stanford cũng được
+ánh xạ sang nhãn đúng, không cần đổi tên dữ liệu gốc.
 Clip có cùng ID hoặc cùng đường dẫn ở nhiều dòng sẽ bị từ chối.
 SHA-256 giống nhau được ghi nhận là trùng nội dung và cả hai clip bị loại khỏi
 tất cả cấu hình. File thiếu, lỗi decode hoặc clip dưới 2 frame được ghi vào audit.
@@ -114,6 +122,7 @@ thứ tự lớp. Các cấu hình dùng cùng giao các clip đọc được.
 | `runs/baseline/*.joblib` | Classifier, method, class order và preprocessing config |
 | `runs/baseline/research_questions.json` | D−B, B−A và majority-class accuracy baseline |
 | `runs/baseline/error_review.csv` | Tối đa 10 lỗi ưu tiên đa dạng lớp, để ghi quan sát thủ công |
+| `runs/baseline/error_frames.png` | Frame thật để xem các lỗi của B/D, có ID và nguồn Stanford/YouTube |
 
 Chỉ nạp `.joblib` do bạn hoặc pipeline này tạo. Chi phí trích đặc trưng gồm
 resize, normalization, descriptor và pooling; decode và khởi tạo/warmup ResNet
@@ -154,3 +163,42 @@ train-only model selection, thứ tự score và xuất metrics/model/artifacts.
 Kiểm thử tổng hợp phục vụ kiểm chứng code; số liệu nghiên cứu phải chạy từ
 dataset Stanford thật. Nhận xét lỗi về camera motion, background và pose cần
 được xác nhận bằng quan sát clip, không suy ra chỉ từ bảng confusion.
+
+## Kết quả baseline đã chạy ngày 14/10/2026
+
+Đã tải và xử lý đủ **783/783 clip**, không thiếu file, lỗi decode hoặc trùng
+SHA-256. Giữ **649 train / 134 test**; validation gồm 130 clip từ train, fit
+gồm 519 clip. Chạy CPU, một thread, seed 42, K=10, không fine-tune ResNet.
+
+| Cấu hình | C chọn bằng validation | Test mAP | Test accuracy | Macro-F1 | Extraction / clip |
+|---|---:|---:|---:|---:|---:|
+| A: HOG | 10 | 47,42% | 41,79% | 39,42% | 22,35 ms |
+| B: ResNet-18 | 10 | 69,24% | 62,69% | 58,85% | 93,34 ms |
+| C: Flow | 1 | 37,11% | 35,82% | 32,62% | 33,22 ms |
+| D: ResNet + flow | 10 | 68,49% | 62,69% | 59,69% | 126,56 ms |
+
+**RQ1:** Thêm flow giảm mAP 0,75 điểm phần trăm, accuracy giữ nguyên
+(84/134 clip đúng ở cả B và D), macro-F1 tăng 0,84 điểm. D sửa được 8 dự đoán
+sai của B nhưng cũng làm sai 8 dự đoán B vốn đúng. Lần chạy này chưa ủng hộ
+giả thuyết motion cải thiện mAP tổng thể; tác dụng thay đổi theo lớp.
+AP tăng ở javelin throw (+55,43 điểm), high jump (+18,85), platform diving
+(+8,06), nhưng giảm ở triple jump (−24,25), snatch (−21,22) và pole vault
+(−12,10). Javelin và triple jump chỉ có 4 clip test mỗi lớp, nên thay đổi AP
+của những lớp này cần được đọc cùng số mẫu.
+
+**RQ2:** ResNet tăng mAP 21,82 điểm phần trăm và accuracy 20,90 điểm so với
+HOG. Đổi lại, extraction trung bình chậm hơn khoảng 4,18 lần trên máy CPU
+này. Majority-class baseline từ train đạt test accuracy 7,46%.
+
+Trong confusion matrix của B, hammer throw thường bị nhận là discus throw;
+clean and jerk bị nhầm với snatch; triple jump bị nhầm với long jump.
+Các frame lỗi đã xem cho thấy có vận động viên nhỏ trong khung hình, ảnh mờ,
+và những cảnh sân thi đấu hoặc khu vực diving trông tương tự nhau. Đây là
+quan sát trên frame minh họa, chưa chứng minh nguyên nhân lỗi hoặc ảnh hưởng
+của camera motion. `runs/baseline/error_review.csv` ghi từng quan sát để nhóm
+tiếp tục đối chiếu toàn clip.
+
+Model D đã được nạp lại và dự đoán trực tiếp từ một clip `.seq`; decision
+scores khớp với scores đã lưu lúc đánh giá. **21 kiểm thử đạt**.
+Kết quả chi tiết nằm trong `runs/baseline/`; dữ liệu, cache và kết quả lớn
+được giữ local, không đưa vào Git.
