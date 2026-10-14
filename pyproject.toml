@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "olympic-action-recognition"
+version = "0.1.0"
+description = "Controlled comparison of HOG, frozen ResNet-18 and optical flow"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26", "opencv-python-headless>=4.10", "scikit-image>=0.24",
+  "scikit-learn>=1.5", "torch>=2.4", "torchvision>=0.19", "matplotlib>=3.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+olympic = "olympic_actions.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

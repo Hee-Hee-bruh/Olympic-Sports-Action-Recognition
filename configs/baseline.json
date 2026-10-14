@@ -1,0 +1,22 @@
+{
+  "samples": 10,
+  "image_size": 224,
+  "seed": 42,
+  "validation_fraction": 0.2,
+  "svm_c": [0.01, 0.1, 1.0, 10.0],
+  "svm_max_iter": 20000,
+  "device": "cpu",
+  "resnet_batch_size": 10,
+  "resnet_weights": "IMAGENET1K_V1",
+  "hog_orientations": 9,
+  "hog_cell_size": 16,
+  "hog_block_cells": 2,
+  "flow_grid": 2,
+  "flow_bins": 8,
+  "flow_pyr_scale": 0.5,
+  "flow_levels": 3,
+  "flow_winsize": 15,
+  "flow_iterations": 3,
+  "flow_poly_n": 5,
+  "flow_poly_sigma": 1.2
+}
