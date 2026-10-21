@@ -66,7 +66,7 @@
 \newcommand{\TeamName}{Project team 10}
 \newcommand{\CourseName}{Image Processing and Pattern Recognition - 31256}
 \newcommand{\UniversityName}{University of Technology Sydney}
-\newcommand{\ReportDate}{15/10/2026}
+\newcommand{\ReportDate}{21/10/2026}
 
 \title{Olympic Sports Action Classification\\
 \large Project Implementation}
@@ -119,6 +119,12 @@ Four video representations were implemented: mean HOG descriptors (A), mean froz
 The initial expectation was that pretrained appearance features would outperform HOG and that motion would help distinguish visually similar actions. These expectations were treated as hypotheses to evaluate, rather than conditions for project success. The following sections describe the implemented pipeline, project organisation, measured results, and the lessons and limitations of the comparison.
 
 \section{Overview of the project and methodology}
+Figure 1 summarises the main K = 10 experiment. Each method turns a clip into one feature vector. The SVM setting is chosen using validation clips before the final test evaluation. The later sampling comparison is described separately in Section 2.6.
+
+\begin{figure}[H]\centering
+\reportfigure{pipeline.png}{4.166666666666667in}
+\caption{Main classification pipeline. All four representations use the same clip partitions. The 519 fitting clips and 130 validation clips come from the official 649 training clips; the 134 test clips are kept for final evaluation.}
+\end{figure}
 \subsection{Dataset and preparation}
 The project uses the Stanford Olympic Sports release dated 7 September 2010. Its videos were collected from YouTube and class labels were annotated using Amazon Mechanical Turk (Stanford University, 2010). The team used these publicly available videos and supplied labels; no new recording or manual class annotation was required. The downloaded release contains 783 clips in 16 classes. The official lists assign 649 clips to training and 134 to testing.
 
@@ -162,9 +168,25 @@ The official test partition is preserved. A stratified 20\% subset of the 649 tr
 
 For each representation, the SVM regularisation parameter C is selected from \{0.01, 0.1, 1, 10\} using validation mean average precision (mAP). Candidates are processed in ascending order, so the smaller C is retained if scores tie. Model selection finishes for all four configurations before test evaluation. Each selected classifier is then refitted on all 649 training clips and evaluated on the 134 official test clips. The SVM uses a maximum of 20,000 iterations, and convergence warnings are treated as errors.
 
-The primary measure is mAP. For each class, average precision (AP) ranks clips by the corresponding SVM decision score in a one-vs-rest comparison. The implementation uses scikit-learn's non-interpolated AP, which sums precision weighted by each increase in recall (Scikit-learn developers, n.d.). mAP is the mean of the 16 class AP values. Top-1 accuracy chooses the class with the largest score, while macro-F1 averages F1 across classes. Decision scores are not probabilities. Row-normalised confusion matrices show the fraction of each true class assigned to each predicted class.
+The primary measure is mAP. For each class, average precision (AP) ranks clips by the corresponding SVM decision score in a one-vs-rest comparison. The implementation uses scikit-learn's non-interpolated AP, which sums precision weighted by each increase in recall (Scikit-learn developers, n.d.-a). mAP is the mean of the 16 class AP values. Top-1 accuracy chooses the class with the largest score, while macro-F1 averages F1 across classes. Decision scores are not probabilities. Row-normalised confusion matrices show the fraction of each true class assigned to each predicted class.
+
+mAP is the primary measure because it evaluates the ranking of relevant clips for each sport, matching the intended video-retrieval use, and gives each class equal weight. It also follows published Olympic Sports evaluation practice: Riahi et al. (2020) report mAP using 649 training and 134 test sequences. This supports the choice of metric, but differences in representations and AP implementations prevent treating published scores as a controlled comparison with this experiment.
+
+The secondary measures answer complementary questions. Top-1 accuracy estimates how often a clip receives the correct label when one label is required. Macro-F1 first combines precision and recall within each class, then averages across classes without weighting by class frequency (Scikit-learn developers, n.d.-b). It therefore helps assess performance across the uneven class sizes. Per-class AP and the confusion matrix reveal which sports contribute to aggregate gains or losses, while extraction time measures the computational cost of obtaining those gains. Together these measures cover ranking quality, single-label correctness, class balance and processing cost.
 
 A majority-class predictor uses the most frequent training label as a basic accuracy reference. Timing separates decoding, feature extraction, classifier fitting and inference from cached features. Extraction includes resizing, normalisation, descriptor computation and pooling, while excluding decoding, model loading and initial warmup. Original cold-run timings are retained when features are read from cache. For D, extraction cost is calculated as the sum of B and C, excluding the small concatenation copy.
+
+\subsection{Supplementary sampling protocol}
+A supplementary study compares K = 5 and K = 10 for B and D, changing only the number of uniformly sampled adjacent-frame pairs. It uses the original 519 fitting clips and 130 validation clips, with seed 42 and the same C grid. C is selected separately for each K and representation using validation mAP. Thus the comparison evaluates each sampling budget with its own selected classifier rather than forcing the K = 10 regularisation onto K = 5. Both settings cover the clip uniformly; five samples are not necessarily a subset of the ten samples.
+
+Both sampling settings are extracted afresh on the same CPU with one thread, using the existing frozen ResNet weights. Their processing order alternates across clips to reduce systematic order effects. Extraction time is averaged over the same 130 validation clips and includes resizing, normalisation, descriptor calculation and pooling. It excludes decoding, model setup and warmup; D sums appearance and flow extraction, excluding concatenation. There is one timed extraction per clip and K, so the runtime comparison is descriptive and has no timing confidence intervals.
+
+This study was conducted after the original K = 10 test results were available. It is therefore a supplementary validation analysis, not evidence that K was selected before the original test evaluation. No official test video is opened or evaluated by the supplementary script, and the original test results and classifiers are retained. K = 10 validation mAP is checked against the original run, and hashes verify that its baseline artifacts remain unchanged.
+
+\subsection{Uncertainty analysis}
+To check how sensitive the test results are to the clips included, we calculate approximate 95\% confidence intervals using bootstrap resampling. Starting from the saved predictions, we draw 2,000 samples with seed 42. Clips are sampled with replacement within each true class, so a clip can appear more than once and every sample retains the original class counts. We use the same sampled clips for all four methods so that their comparisons remain paired.
+
+For each sample, we recalculate mAP, accuracy and the differences D minus B and B minus A. The lower and upper limits are the 2.5th and 97.5th percentiles of these values, following the percentile-bootstrap approach described by SciPy developers (n.d.). The models and decision scores stay fixed. This analysis does not retrain models, choose settings or generate new test predictions. It only estimates uncertainty from the observed test clips under this resampling scheme.
 
 \subsection{Implementation and reproducibility}
 The final implementation is organised into Python modules for configuration, data preparation, feature extraction, experiments, prediction and error visualisation. The command-line interface supports preparation, extraction, validation, final evaluation and prediction from a saved classifier. A configuration file records descriptor settings, sampling, random seed and SVM candidates. Feature-cache keys include file hashes, configuration values and library versions to prevent incompatible features from being reused.
@@ -180,7 +202,7 @@ A shared configuration and common feature bundle provide the interface between i
 Integration is supported by automated checks for decoding, short clips, adjacent-frame sampling, feature normalisation, duplicate entries, score ordering and training-only model selection. Saved manifests, audit files and validation tables also provide reviewable evidence. The report combines these outputs into a common account of the research questions, results and limitations.
 
 \subsection{Scope management}
-The implemented study retains the four core configurations, K = 10 sampling and the small validation search proposed in A1. This keeps the work focused on the two research questions. Direct SEQ decoding and cached features reduce conversion and repeated extraction work. The optional K = 5 versus K = 10 validation study is not part of the completed results; the report therefore makes no claim that ten samples are optimal. A broader sampling study and more complex video models remain future work.
+The main experiment retains the four core configurations, K = 10 sampling and the small validation search proposed in A1. Direct SEQ decoding and cached features reduce conversion and repeated extraction work. The optional K = 5 versus K = 10 study has now been completed as a supplementary training-only validation analysis for B and D. It is reported separately because it followed the original test evaluation. Broader sampling searches and more complex video models remain future work.
 
 \section{Results}
 \subsection{Data audit and model selection}
@@ -243,7 +265,7 @@ Triple jump & 17 & 4 & 36.08 & 11.83 & -24.25 \\
 Vault & 46 & 10 & 83.92 & 77.50 & -6.41 \\
 \bottomrule\end{tabular}
 \end{table}
-The largest AP improvement from fusion occurred in javelin throw (+55.43 percentage points), followed by high jump (+18.85) and platform diving (+8.06). The largest decreases occurred in triple jump (-24.25), snatch (-21.22) and pole vault (-12.10). Javelin throw and triple jump each contain only four test clips, so a small change in ranking can produce a large AP change. Figure 2 shows the direction and size of these class-specific differences.
+The largest AP improvement from fusion occurred in javelin throw (+55.43 percentage points), followed by high jump (+18.85) and platform diving (+8.06). The largest decreases occurred in triple jump (-24.25), snatch (-21.22) and pole vault (-12.10). Javelin throw and triple jump each contain only four test clips, so a small change in ranking can produce a large AP change. Figure 3 shows the direction and size of these class-specific differences.
 
 \begin{figure}[H]\centering
 \reportfigure{ap_delta.png}{3.75in}
@@ -251,7 +273,7 @@ The largest AP improvement from fusion occurred in javelin throw (+55.43 percent
 \end{figure}
 For B, springboard diving reached 100.00\% AP, while basketball layup, bowling and tennis serve each exceeded 91\% AP. Its lowest AP was for javelin throw at 25.82\%. A high class AP describes ranking across the test set; it does not imply that every clip receives the correct top-1 label.
 
-The confusion matrix in Figure 3 shows that B predicted discus throw for six of the eight hammer-throw clips. It also predicted snatch for five of the ten clean-and-jerk clips, clean and jerk for three of the nine snatch clips, and long jump for two of the four triple-jump clips. These counts identify recurring classification difficulties. They are consistent with the challenge of separating related events, but do not establish which visual cues caused each mistake.
+The confusion matrix in Figure 4 shows that B predicted discus throw for six of the eight hammer-throw clips. It also predicted snatch for five of the ten clean-and-jerk clips, clean and jerk for three of the nine snatch clips, and long jump for two of the four triple-jump clips. These counts identify recurring classification difficulties. They are consistent with the challenge of separating related events, but do not establish which visual cues caused each mistake.
 
 \begin{figure}[H]\centering
 \reportfigure{confusion.png}{4.930555555555555in}
@@ -273,7 +295,7 @@ Mean decoding time was 5.99 ms per test clip. D added 33.22 ms of extraction wor
 Cached SVM inference was very small compared with extraction time. These measurements divide batch decision-score timing by the number of test clips, so they should not be interpreted as independently measured single-clip response times. Adding average decoding, extraction and cached inference gives estimated costs of 28.34, 99.32, 39.21 and 132.55 ms per clip for A to D. These are component-based estimates, not a separate end-to-end latency benchmark. Dataset download and model initialisation are excluded.
 
 \subsection{Error inspection and implementation checks}
-The error review covers ten clips from different true classes, prioritising cases where B and D disagree. Figure 4 presents four illustrative frames. For basketball layup, D corrected B's platform-diving prediction. For platform diving, D corrected a springboard-diving prediction. In contrast, D changed a correct discus-throw prediction to snatch and a correct springboard-diving prediction to platform diving. These examples demonstrate both benefits and losses from fusion.
+The error review covers ten clips from different true classes, prioritising cases where B and D disagree. Figure 5 presents four illustrative frames. For basketball layup, D corrected B's platform-diving prediction. For platform diving, D corrected a springboard-diving prediction. In contrast, D changed a correct discus-throw prediction to snatch and a correct springboard-diving prediction to platform diving. These examples demonstrate both benefits and losses from fusion.
 
 \begin{figure}[H]\centering
 \reportfigure{errors.png}{3.8194444444444446in}
@@ -283,10 +305,66 @@ The broader gallery contains low-resolution frames, a blurred high-jump frame, a
 
 The project records 21 passing automated tests covering reader behaviour, sampling, feature calculation, validation isolation and exported outputs. A saved D classifier was also reloaded for prediction from a SEQ clip, and its scores matched the exported evaluation scores. For this report, mAP was independently recomputed from the saved decision-score columns and matched the stored metric files for all four configurations. These checks support implementation consistency; they do not remove the dataset and modelling limitations discussed next.
 
+\subsection{Supplementary K = 5 versus K = 10 validation study}
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Supplementary sampling comparison on the same 130 validation clips. Scores are percentages; extraction times are fresh measurements from this study, separate from Table 6.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.243\linewidth}>{\raggedright\arraybackslash}p{0.063\linewidth}>{\raggedright\arraybackslash}p{0.126\linewidth}>{\raggedright\arraybackslash}p{0.144\linewidth}>{\raggedright\arraybackslash}p{0.144\linewidth}>{\raggedright\arraybackslash}p{0.18\linewidth}@{}}\toprule
+\textbf{Method / K} & \textbf{C} & \textbf{mAP} & \textbf{Accuracy} & \textbf{Macro-F1} & \textbf{Extract ms/clip} \\ \midrule
+B ResNet / 5 & 10 & 81.18 & 75.38 & 73.60 & 51.53 \\
+D Combined / 5 & 10 & 74.24 & 75.38 & 73.27 & 69.09 \\
+B ResNet / 10 & 10 & 82.01 & 76.92 & 76.30 & 100.98 \\
+D Combined / 10 & 10 & 81.47 & 76.92 & 76.45 & 136.41 \\
+\bottomrule\end{tabular}
+\end{table}
+For B, reducing K from 10 to 5 changed validation mAP from 82.01\% to 81.18\% (-0.83 percentage points). Mean extraction time changed from 100.98 to 51.53 ms per clip, a reduction of 48.97\%.
+
+For D, reducing K from 10 to 5 changed validation mAP from 81.47\% to 74.24\% (-7.22 percentage points). Mean extraction time changed from 136.41 to 69.09 ms per clip, a reduction of 49.35\%.
+
+Within this validation split, five samples retain most of B's ranking performance at approximately half the extraction cost, whereas D is more sensitive to the reduced sampling budget. Uniformly changing K changes which moments are observed as well as how many pairs are processed. The results therefore cannot isolate whether D's larger mAP loss comes from sampling density or the particular appearance and motion cues selected. K = 10 has the higher measured validation mAP for both methods, while K = 5 exposes a lower-cost option whose suitability depends on the acceptable loss in ranking quality.
+
+The K = 10 validation mAP values reproduce the original B and D results. This check supports consistency between the supplementary extraction and the main pipeline. The new timings use validation clips and a new measurement session, whereas Table 6 uses the original test clips, so absolute timings from the two tables should not be compared as a sampling effect. The experiment assesses a processing-cost trade-off within one development split; it does not establish the optimal sampling count or the test performance of K = 5. No additional test evaluation was performed.
+
+\subsection{Uncertainty in the test results}
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Test scores with approximate 95\% bootstrap confidence intervals (CI), based on 2,000 class-stratified resamples of the 134 test clips. All values are percentages.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.198\linewidth}>{\raggedright\arraybackslash}p{0.108\linewidth}>{\raggedright\arraybackslash}p{0.225\linewidth}>{\raggedright\arraybackslash}p{0.144\linewidth}>{\raggedright\arraybackslash}p{0.225\linewidth}@{}}\toprule
+\textbf{Method} & \textbf{mAP} & \textbf{95\% CI} & \textbf{Accuracy} & \textbf{95\% CI} \\ \midrule
+A HOG & 47.42 & [43.56, 55.79] & 41.79 & [35.07, 49.25] \\
+B ResNet & 69.24 & [65.74, 76.50] & 62.69 & [55.97, 69.40] \\
+C Flow & 37.11 & [34.28, 48.18] & 35.82 & [29.83, 42.54] \\
+D Combined & 68.49 & [65.17, 75.75] & 62.69 & [56.72, 69.40] \\
+\bottomrule\end{tabular}
+\end{table}
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Paired mAP differences and approximate 95\% confidence intervals. Differences are percentage points (pp); positive values favour the first method.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.315\linewidth}>{\raggedright\arraybackslash}p{0.27\linewidth}>{\raggedright\arraybackslash}p{0.315\linewidth}@{}}\toprule
+\textbf{Comparison} & \textbf{mAP difference (pp)} & \textbf{95\% CI (pp)} \\ \midrule
+D minus B & -0.75 & [-5.10, +3.93] \\
+B minus A & +21.82 & [+15.22, +27.41] \\
+\bottomrule\end{tabular}
+\end{table}
+For RQ1, the measured D-minus-B mAP difference is -0.75 percentage points, with an interval from -5.10 to +3.93. This interval includes zero. The available test clips therefore do not give clear evidence of an mAP difference between these fitted models. This also does not show that their performance is identical.
+
+For RQ2, B exceeds A by 21.82 mAP percentage points, with an interval from +15.22 to +27.41. The interval stays above zero, supporting the observed benefit of ResNet over HOG within this evaluation. The result still depends on the dataset, frozen models and resampling assumptions.
+
+These intervals describe uncertainty for the existing predictions. They do not measure the variation that would come from retraining on new data or changing the development split. Clips from a shared original recording are not grouped during resampling, which may make the intervals too narrow. Small classes also limit how well resampling can represent new clips. The intervals are therefore approximate and do not establish performance on new recording sources.
+
 \section{Discussion and challenges}
 \subsection{Achievement of the original goals}
 The core goals in A1 were achieved: a working pipeline prepares the official dataset, extracts four representations, selects SVM parameters without using test scores, and saves comparable evaluation outputs. RQ2 supports the expected benefit of pretrained features, although the improvement comes with a measurable extraction cost. RQ1 produced a mixed result. Adding flow helped some classes and slightly improved macro-F1, but did not improve overall mAP or accuracy. The project therefore answers the research questions without requiring both initial hypotheses to be supported.
 
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Technical goals from A1 and evidence in A2. Completion means that the planned comparison was carried out, rather than that every hypothesis was supported.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.243\linewidth}>{\raggedright\arraybackslash}p{0.432\linewidth}>{\raggedright\arraybackslash}p{0.225\linewidth}@{}}\toprule
+\textbf{A1 goal} & \textbf{Evidence in A2} & \textbf{Outcome} \\ \midrule
+Prepare and check the data & 783 clips audited; official 649/134 split retained (Section 4.1). & Completed \\
+Compare four representations & A-D evaluated on the same test clips (Table 4). & Completed \\
+Keep model selection separate from testing & C selected on 519 fitting and 130 validation clips (Section 2.5). & Completed for the main experiment \\
+Make experiments repeatable & Saved settings, partitions, scores and commented code (Section 2.8 and Appendix A). & Completed \\
+Explain errors and processing cost & Per-class AP, confusion matrix, error examples and timings (Sections 4.4-4.6). & Completed \\
+Explore K = 5 versus K = 10 if time permits & B and D compared on the original validation split (Table 7). & Completed after the main test evaluation \\
+\bottomrule\end{tabular}
+\end{table}
 ResNet offers the strongest overall balance among the tested configurations when mAP and accuracy are prioritised. It achieves higher mAP than D with lower extraction cost, while matching D's accuracy. HOG may remain relevant where feature-extraction resources are limited and lower performance is acceptable. D may be useful for particular classes, but the current results do not justify a general claim that fusion is the better option.
 
 \subsection{Technical challenges and adjustments}
@@ -299,20 +377,20 @@ Repeated feature extraction would add unnecessary computation during SVM selecti
 Another challenge is interpreting fusion when different metrics disagree. Equal accuracy initially appears to imply equivalent predictions, but the per-clip review reveals eight corrections and eight new errors. Reporting macro-F1, per-class AP and individual cases makes this trade-off visible. The observed losses also show why a plausible method should be tested rather than assumed to improve performance.
 
 \subsection{Limitations and interpretation}
-The test partition contains only 134 clips, with four to eleven examples per class. One additional correct prediction changes overall accuracy by about 0.75 percentage points, and small classes can show large AP changes when a few scores change order. No confidence intervals or significance tests were computed, so the 0.75-point mAP difference between B and D should not be described as a statistically established advantage. The conclusion applies to this configuration and split.
+The test partition contains only 134 clips, with four to eleven examples per class. One additional correct prediction changes overall accuracy by about 0.75 percentage points, and small classes can show large AP changes when a few scores change order. The bootstrap interval for D minus B includes zero, so the observed 0.75-point mAP difference does not provide clear evidence that either fitted model is better. The intervals keep the trained models and class counts fixed, and do not account for shared video sources. They should be read as approximate checks on the current results.
 
 The audit checks exact file duplicates, while the official split operates at clip level. A filename-based check found one original YouTube source identifier represented in both partitions: its snatch segments are in training and its clean-and-jerk segments are in testing. The listed frame intervals do not overlap, but the source may share an athlete, venue or recording conditions. The stratified validation split also does not group clips by original source. Consequently, the experiment should not be interpreted as evaluation on entirely independent recording sources.
 
 Mean pooling removes the order of movement. This is especially relevant when related events are distinguished by sequences of stages rather than by one pose. The flow descriptor uses a coarse grid and averages directions across the clip. It cannot separate athlete motion from camera or background motion. Such properties may explain why flow alone is weak and why fusion sometimes adds unhelpful information, but their causal effects were not isolated in this study.
 
-The combination uses equal block weighting without a validation study of alternative weights. Direct 224 $\times$ 224 resizing can change body and equipment proportions. The sample count, crop strategy, flow grid and pretrained network were fixed rather than extensively compared. ResNet also benefits from external ImageNet training, so B versus A compares practical feature choices with different prior training histories. Results should not be presented as a universal comparison of learned and handcrafted methods.
+The combination uses equal block weighting without a validation study of alternative weights. Direct 224 $\times$ 224 resizing can change body and equipment proportions. The supplementary sampling study covers only K = 5 and K = 10 on one validation split and was performed after the original test results were available. It provides no new test estimate or statistically established sampling advantage. Crop strategy, flow grid and pretrained network were fixed rather than extensively compared. ResNet also benefits from external ImageNet training, so B versus A compares practical feature choices with different prior training histories. Results should not be presented as a universal comparison of learned and handcrafted methods.
 
 The lower test mAP relative to validation mAP may reflect the small validation sample, differences between partitions or parameter selection effects. The available experiment does not separate these causes. Similarly, the recorded hardware metadata supports comparison within this run but is insufficient for a detailed hardware benchmark. These limits favour careful interpretation over claims of deployment readiness or state-of-the-art performance.
 
 \subsection{Future work and lessons learned}
-A first extension would compare K = 5 and K = 10 using validation data, recording both performance and extraction cost as proposed in A1. Additional preprocessing studies could compare direct resizing with aspect-ratio-preserving crops. Fusion weights could be selected on validation data to reduce the influence of an unhelpful motion block. These choices should be fixed before a new final evaluation, with the already-inspected test results acknowledged.
+The completed supplementary K = 5 versus K = 10 study begins to quantify the sampling trade-off proposed in A1. Further work should assess a broader sampling range and repeated development splits, alongside aspect-ratio-preserving crops and validation-selected fusion weights. Any new model-selection decisions should be fixed before evaluation on a fresh holdout, with the already-inspected original test results acknowledged.
 
-For better motion modelling, future work could use athlete-centred crops, camera-motion compensation or temporal pooling that preserves coarse action stages. A pretrained video model would provide another comparison if time and computing resources allowed. Source-grouped validation and a separate source-independent holdout would test whether the classifier transfers to new recordings. Confidence intervals and repeated development splits would also help show the uncertainty around small differences.
+For better motion modelling, future work could use athlete-centred crops, camera-motion compensation or temporal pooling that preserves coarse action stages. A pretrained video model would provide another comparison if time and computing resources allowed. Source-grouped validation and a separate source-independent holdout would test whether the classifier transfers to new recordings. Repeated development splits and uncertainty analysis that groups clips by recording source would extend the current bootstrap check.
 
 The main lesson is that useful action information comes from both what a clip looks like and how movement is represented. Pretrained appearance features can transfer effectively to a small dataset, while a simple motion histogram may help selected classes without improving the overall result. The project also shows that reliable comparisons depend on data checks, consistent preprocessing, score-based metrics and a clear separation of development and testing. Negative or mixed findings remain informative when the experiment makes their scope clear.
 
@@ -320,6 +398,8 @@ The main lesson is that useful action information comes from both what a clip lo
 This project completed a reproducible comparison of HOG, frozen ResNet-18, optical-flow histograms and combined appearance-motion features for 16-class Olympic Sports classification. All 783 clips were processed, and the official training and test partitions were retained. ResNet achieved the highest test mAP of 69.24\% and 62.69\% accuracy. Compared with HOG, it improved mAP by 21.82 percentage points while requiring approximately 4.18 times the feature-extraction cost.
 
 Adding flow produced 68.49\% mAP, the same 62.69\% accuracy and slightly higher macro-F1. It corrected eight ResNet errors but introduced eight new ones, showing that its value depends on the class and clip. Among the tested methods, ResNet alone offers the clearest overall balance of classification performance and cost. The study meets the core implementation goals and identifies practical next steps in sampling, fusion, temporal representation and source-independent evaluation.
+
+The supplementary study shows that five samples reduce extraction time by about half, with a smaller validation mAP loss for ResNet than for the combined features. The bootstrap results support the observed ResNet improvement over HOG, while the mAP difference between ResNet and fusion remains unclear. These findings apply to this dataset and experimental setup.
 
 \clearpage
 \section*{References}
@@ -335,7 +415,13 @@ Adding flow produced 68.49\% mAP, the same 62.69\% accuracy and slightly higher 
 \vspace{4pt}
 \noindent\hangindent=0.5in\hangafter=1 PyTorch contributors. (n.d.). \emph{resnet18}. Torchvision documentation. Retrieved October 14, 2026, from \url{https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html}\par
 \vspace{4pt}
-\noindent\hangindent=0.5in\hangafter=1 Scikit-learn developers. (n.d.). \emph{average\_precision\_score}. Scikit-learn documentation. Retrieved October 14, 2026, from \url{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html}\par
+\noindent\hangindent=0.5in\hangafter=1 Riahi, M., Eslami, M., Safavi, S. H., \& Torkamani Azar, F. (2020). Human activity recognition using improved dynamic image. \emph{IET Image Processing, 14}(13), 3223-3231. \url{https://doi.org/10.1049/iet-ipr.2019.1739}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 Scikit-learn developers. (n.d.-a). \emph{average\_precision\_score}. Scikit-learn documentation. Retrieved October 14, 2026, from \url{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 Scikit-learn developers. (n.d.-b). \emph{f1\_score}. Scikit-learn documentation. Retrieved October 21, 2026, from \url{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 SciPy developers. (n.d.). \emph{bootstrap}. SciPy documentation. Retrieved October 21, 2026, from \url{https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.bootstrap.html}\par
 \vspace{4pt}
 \noindent\hangindent=0.5in\hangafter=1 Simonyan, K., \& Zisserman, A. (2014). Two-stream convolutional networks for action recognition in videos. In \emph{Advances in neural information processing systems} (Vol. 27, pp. 568-576). Curran Associates. \url{https://arxiv.org/abs/1406.2199}\par
 \vspace{4pt}
@@ -1594,5 +1680,235 @@ def test_official_platform_archive_typo_maps_to_correct_split_label(tmp_path):
     clips = official_manifest(tmp_path / "videos", tmp_path / "splits", tmp_path / "manifest.csv")
     assert [clip.label for clip in clips] == ["diving_platform_10m"] * 2
     assert all(clip.path.exists() for clip in clips)
+\end{lstlisting}
+\subsection{Supplementary sampling study}
+This script recomputes B and D at K = 5 and K = 10 on the original training clips, saves validation scores and fresh extraction timings, and checks that baseline artifacts are unchanged. It never opens official test videos.
+
+\begin{lstlisting}[caption={scripts/run\_sampling\_ablation.py}]
+"""Compare K=5/10 on the original training-only split, with fresh paired timings.
+
+Run from the repository: python scripts/run_sampling_ablation.py
+Official test videos are never opened and baseline artifacts are never replaced.
+"""
+import csv
+from dataclasses import replace
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import platform
+import sys
+from time import perf_counter
+
+import cv2
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from olympic_actions.config import Config
+from olympic_actions.data import CLASSES, file_sha256, load_manifest, read_sampled_pairs, write_csv
+from olympic_actions.experiment import decision_scores, fit_classifier, metrics, select_c, validation_indices
+from olympic_actions.features import ResNetExtractor, environment, flow_feature
+
+
+def main():
+    output = ROOT / "runs/sampling_ablation"
+    # Refuse to mix partial/repeated timings with a completed experiment.
+    output.mkdir(parents=True, exist_ok=False)
+    config = Config.load(ROOT / "configs/baseline.json")
+    clips = [c for c in load_manifest(ROOT / "data/manifest.csv") if c.split == "train"]
+    ids = np.array([c.clip_id for c in clips])
+    labels = np.array([c.label for c in clips])
+    fit, val, _, test = validation_indices(labels, np.array([c.split for c in clips]), config)
+    assert len(clips) == 649 and len(fit) == 519 and len(val) == 130 and not len(test)
+    with (ROOT / "runs/baseline/partitions.csv").open() as stream:
+        original = {r["clip_id"]: r["selection_subset"] for r in csv.DictReader(stream)}
+    subsets = ["validation" if i in set(val) else "fit" for i in range(len(clips))]
+    assert all(original[clip_id] == subset for clip_id, subset in zip(ids, subsets))
+    baseline_files = sorted(p for p in (ROOT / "runs/baseline").iterdir() if p.is_file())
+    baseline_hashes = {p.name: file_sha256(p) for p in baseline_files}
+    write_csv(output / "partitions.csv", [dict(clip_id=c.clip_id, label=c.label,
+              official_split="train", selection_subset=s) for c, s in zip(clips, subsets)])
+    cv2.setNumThreads(1)
+    # Reuse frozen weights, but compute every descriptor afresh for this study.
+    extractor = ResNetExtractor(config, ROOT / ".cache/features")
+    vectors = {k: {"resnet": [], "flow": [], "times": []} for k in (5, 10)}
+    audit = []
+    for i, clip in enumerate(clips):
+        digest = file_sha256(clip.path)
+        # Alternate processing order to reduce systematic order/thermal bias.
+        for k in ((5, 10) if i % 2 == 0 else (10, 5)):
+            settings = replace(config, samples=k)
+            pairs, info = read_sampled_pairs(clip.path, k)
+            extractor.sync()
+            started = perf_counter()
+            appearance = extractor(pairs)
+            appearance_seconds = perf_counter() - started
+            started = perf_counter()
+            motion = flow_feature(pairs, settings)
+            motion_seconds = perf_counter() - started
+            assert np.isfinite(appearance).all() and np.isfinite(motion).all()
+            vectors[k]["resnet"].append(appearance)
+            vectors[k]["flow"].append(motion)
+            vectors[k]["times"].append([appearance_seconds, motion_seconds, info["decode_seconds"]])
+            audit.append(dict(clip_id=clip.clip_id, subset=subsets[i], K=k, sha256=digest,
+                              sampled_indices=json.dumps(info["sample_indices"]),
+                              actual_pairs=len(pairs), resnet_seconds=appearance_seconds,
+                              flow_seconds=motion_seconds, decode_seconds=info["decode_seconds"]))
+        if (i + 1) % 25 == 0 or i + 1 == len(clips):
+            print(f"Paired extraction {i + 1}/{len(clips)} training clips", flush=True)
+    write_csv(output / "extraction_audit.csv", audit)
+    rows, validation_results, prediction_rows = [], {}, []
+    for k, values in vectors.items():
+        values = {name: np.asarray(array) for name, array in values.items()}
+        np.savez_compressed(output / f"features_k{k}.npz", **values, clip_ids=ids, labels=labels)
+        settings = replace(config, samples=k)
+        validation_results[str(k)] = {}
+        for method in ("resnet", "resnet_flow"):
+            features = values["resnet"] if method == "resnet" else np.concatenate(
+                [values["resnet"], values["flow"]], axis=1)
+            chosen_c, candidates = select_c(features, labels, fit, val, settings, CLASSES)
+            model, _ = fit_classifier(features[fit], labels[fit], chosen_c, settings)
+            scores = decision_scores(model, features[val], CLASSES)
+            result, predicted = metrics(labels[val], scores, CLASSES)
+            timing = values["times"][val, 0].copy()
+            if method == "resnet_flow":
+                timing += values["times"][val, 1]
+            rows.append(dict(K=k, method=method, selected_C=chosen_c, validation_clips=len(val),
+                             mAP=result["mAP"], accuracy=result["accuracy"], macro_f1=result["macro_f1"],
+                             extraction_ms_per_clip=float(timing.mean() * 1000),
+                             extraction_median_ms=float(np.median(timing) * 1000)))
+            validation_results[str(k)][method] = dict(selected_C=chosen_c, candidates=candidates,
+                                                     metrics=result)
+            for j, index in enumerate(val):
+                prediction_rows.append(dict(K=k, method=method, clip_id=ids[index],
+                                            true_label=labels[index], prediction=predicted[j],
+                                            **{f"score_{c}": float(scores[j, n]) for n, c in enumerate(CLASSES)}))
+    # K=10 must reproduce the original validation mAP before interpreting K=5.
+    baseline = json.loads((ROOT / "runs/baseline/validation.json").read_text())
+    for row in rows:
+        if row["K"] == 10:
+            previous = baseline[row["method"]]
+            expected = next(c["mAP"] for c in previous["candidates"] if c["C"] == previous["selected_C"])
+            assert row["selected_C"] == previous["selected_C"]
+            assert abs(row["mAP"] - expected) < 1e-10
+    assert baseline_hashes == {p.name: file_sha256(p) for p in baseline_files}
+    write_csv(output / "summary.csv", rows)
+    write_csv(output / "validation_predictions.csv", prediction_rows)
+    (output / "validation.json").write_text(json.dumps(validation_results, indent=2))
+    (output / "protocol.json").write_text(json.dumps(dict(
+        timestamp_utc=datetime.now(timezone.utc).isoformat(), config=config.to_dict(),
+        samples_compared=[5, 10], versions=environment(), platform=platform.platform(),
+        processor=platform.processor(), python=platform.python_version(), cpu_threads=1,
+        fit_clips=len(fit), validation_clips=len(val), test_clips_opened=0,
+        timing_note="Fresh descriptors; alternating K order per clip. Mean on 130 validation clips; "
+                    "includes resize/normalisation/pooling, excludes decoding/model setup/warmup. "
+                    "D sums B and flow, excluding concatenation. One pass per K, no timing intervals.",
+        study_note="Supplementary analysis performed after the original test results were available. "
+                   "No new test evaluation or replacement of the original K=10 results.",
+        baseline_artifacts_unchanged=True, baseline_hashes=baseline_hashes), indent=2))
+    for row in rows:
+        print(row, flush=True)
+
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+\subsection{Uncertainty analysis}
+This script resamples the saved test predictions within classes, using the same sampled clips for each method. It saves confidence intervals and paired differences without retraining models or changing the baseline files.
+
+\begin{lstlisting}[caption={scripts/bootstrap\_results.py}]
+"""Estimate test-score uncertainty from saved predictions; no model is retrained.
+
+Run from the repository: python scripts/bootstrap_results.py
+Resample clips within each true class and use identical samples for all methods.
+The intervals are conditional on the fitted models and observed class counts.
+"""
+import csv
+import json
+from pathlib import Path
+import sys
+
+import numpy as np
+from sklearn.metrics import accuracy_score, average_precision_score
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from olympic_actions.data import CLASSES, file_sha256, write_csv
+
+METHODS = ("hog", "resnet", "flow", "resnet_flow")
+REPEATS, SEED = 2000, 42
+
+
+def evaluate(labels, scores):
+    ap = [average_precision_score(labels == c, scores[:, j]) for j, c in enumerate(CLASSES)]
+    predicted = np.asarray(CLASSES)[scores.argmax(axis=1)]
+    return np.array([np.mean(ap), accuracy_score(labels, predicted)])
+
+
+def main():
+    baseline = ROOT / "runs/baseline"
+    output = ROOT / "runs/uncertainty"
+    output.mkdir(parents=True, exist_ok=False)
+    hashes = {p.name: file_sha256(p) for p in baseline.iterdir() if p.is_file()}
+    with (baseline / "predictions.csv").open() as stream:
+        rows = list(csv.DictReader(stream))
+    grouped = {m: sorted([r for r in rows if r["method"] == m], key=lambda r: r["clip_id"])
+               for m in METHODS}
+    ids = [r["clip_id"] for r in grouped["hog"]]
+    labels = np.array([r["true_label"] for r in grouped["hog"]])
+    assert len(ids) == len(set(ids)) == 134 and set(labels) == set(CLASSES)
+    scores = {}
+    for method in METHODS:
+        assert ids == [r["clip_id"] for r in grouped[method]]
+        assert labels.tolist() == [r["true_label"] for r in grouped[method]]
+        scores[method] = np.array([[float(r[c]) for c in CLASSES] for r in grouped[method]])
+        assert np.isfinite(scores[method]).all()
+    point = np.stack([evaluate(labels, scores[m]) for m in METHODS])
+    for i, method in enumerate(METHODS):
+        original = json.loads((baseline / f"{method}_metrics.json").read_text())
+        assert np.allclose(point[i], [original["mAP"], original["accuracy"]], atol=1e-12)
+    rng = np.random.default_rng(SEED)
+    strata = [np.flatnonzero(labels == c) for c in CLASSES]
+    samples = np.stack([np.concatenate([rng.choice(s, len(s), replace=True) for s in strata])
+                        for _ in range(REPEATS)])
+    results = np.empty((REPEATS, len(METHODS), 2))
+    for repeat, selected in enumerate(samples):
+        for i, method in enumerate(METHODS):
+            results[repeat, i] = evaluate(labels[selected], scores[method][selected])
+        if (repeat + 1) % 200 == 0:
+            print(f"Bootstrap {repeat + 1}/{REPEATS}", flush=True)
+    np.savez_compressed(output / "bootstrap_samples.npz", indices=samples, statistics=results,
+                        clip_ids=np.array(ids), methods=np.array(METHODS))
+    intervals = np.quantile(results, [0.025, 0.975], axis=0)
+    summaries = []
+    for i, method in enumerate(METHODS):
+        summaries.append(dict(method=method, mAP=point[i, 0], mAP_low=intervals[0, i, 0],
+                              mAP_high=intervals[1, i, 0], accuracy=point[i, 1],
+                              accuracy_low=intervals[0, i, 1], accuracy_high=intervals[1, i, 1]))
+    comparisons = []
+    for name, left, right in [("D minus B", 3, 1), ("B minus A", 1, 0)]:
+        differences = results[:, left] - results[:, right]
+        low, high = np.quantile(differences, [0.025, 0.975], axis=0)
+        delta = point[left] - point[right]
+        comparisons.append(dict(comparison=name, delta_mAP=delta[0], mAP_low=low[0],
+                                mAP_high=high[0], delta_accuracy=delta[1],
+                                accuracy_low=low[1], accuracy_high=high[1]))
+    assert hashes == {p.name: file_sha256(p) for p in baseline.iterdir() if p.is_file()}
+    write_csv(output / "summary.csv", summaries)
+    write_csv(output / "comparisons.csv", comparisons)
+    (output / "protocol.json").write_text(json.dumps(dict(
+        repeats=REPEATS, seed=SEED, confidence=0.95, method="percentile",
+        resampling="Within each true class, keep its observed test count; paired across methods",
+        source="runs/baseline/predictions.csv", source_sha256=hashes["predictions.csv"],
+        retraining=False, new_test_predictions=False, baseline_artifacts_unchanged=True,
+        limitations="Clip-level intervals with fixed models and class counts. They exclude model "
+                    "selection/training variability and do not account for shared video sources. "
+                    "Small classes and source dependence limit interpretation."), indent=2))
+    for row in summaries + comparisons:
+        print(row, flush=True)
+
+
+if __name__ == "__main__":
+    main()
 \end{lstlisting}
 \end{document}

@@ -160,19 +160,49 @@ CPU is the default for consistent benchmarking. Set `device` to `mps` or `cuda`
 on compatible hardware if desired. Results from different devices should be
 reported as separate benchmarks.
 
-## Optional K=5 validation ablation
+## Supplementary K=5 versus K=10 validation ablation
 
-Copy the configuration, set `samples` to 5, and use separate output directories:
+Run from the repository with the installed environment and downloaded data/weights:
 
 ```bash
-olympic extract --config configs/k5.json --output runs/features_k5
-olympic experiment --config configs/k5.json --features runs/features_k5/features.npz --output runs/validation_k5
+MPLCONFIGDIR=.cache/matplotlib python scripts/run_sampling_ablation.py
 ```
 
-Compare B and D against K=10 on validation data to select K before evaluating
-the test set. Do not use test results to select K. Changing the configuration
-or library versions creates a different cache key, preventing reuse of vectors
-computed with different preprocessing settings.
+The script extracts B (ResNet) and D (ResNet + flow) afresh at both sampling
+budgets, alternating K order per clip, and selects C separately on the original
+519-fit / 130-validation split. No official test videos are opened. Fresh timing
+means use the same 130 validation clips, excluding decoding and model setup.
+The completed outputs are in `runs/sampling_ablation/`: `summary.csv`, full
+C-grid results, validation predictions, clip-level extraction audit, partitions,
+features and protocol. Baseline file hashes and reproduction of the original
+K=10 validation mAP verify consistency. The script refuses to overwrite an
+existing output directory, so preserve or rename a previous run before rerunning.
+
+This supplementary study was performed **after the original K=10 test results
+were available**. It does not replace those results, claim that K was selected
+before testing, or provide test performance for K=5. Timings from this study
+should be compared within its own table, rather than directly with the original
+test-set timings. Each K has one timed pass per clip; no timing uncertainty
+intervals were computed.
+
+## Uncertainty analysis from saved test predictions
+
+```bash
+python scripts/bootstrap_results.py
+```
+
+This computes approximate 95% percentile bootstrap intervals for mAP and accuracy,
+and paired D-minus-B and B-minus-A differences. It uses 2,000 resamples (seed 42),
+resampling clips within each true class and keeping the same sampled clips for
+all four methods. Models and decision scores remain fixed; no models are
+retrained and no new test predictions are generated.
+
+Outputs in `runs/uncertainty/` include score intervals, comparison intervals,
+resampling indices/statistics and the protocol. Existing baseline files are
+checked by hash. The script refuses to overwrite an existing output directory.
+These clip-level intervals do not include training/model-selection variation or
+account for dependence between clips from shared recording sources. They are
+approximate, particularly for classes with few test clips.
 
 ## Tests
 
