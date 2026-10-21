@@ -1,0 +1,1598 @@
+% Upload this file to Overleaf and compile with XeLaTeX.
+% All report text and appendix listings are embedded in this file.
+% Fill in the blank contribution cells before submission.
+% Upload the supplied figures folder to include the four result figures.
+\documentclass[10pt,letterpaper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage[letterpaper,textwidth=5.5in,textheight=9in,top=1in,
+  headheight=12pt,headsep=25pt,footskip=30pt]{geometry}
+\usepackage[authoryear,round]{natbib}
+\bibpunct{(}{)}{;}{a}{,}{,}
+\usepackage{amsmath,amssymb,booktabs,tabularx,float,microtype,graphicx,listings}
+\usepackage[hyphens]{url}
+\urlstyle{same}
+\usepackage{xcolor}
+\definecolor{reportlink}{rgb}{0.14,0.34,0.58}
+\usepackage[colorlinks,allcolors=reportlink]{hyperref}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5.5pt}
+\setlength{\abovecaptionskip}{0pt}
+\setlength{\belowcaptionskip}{7pt}
+\setlength{\bibsep}{4pt}
+\setlength{\bibhang}{0.5in}
+% APA 7 author-date citations and a compact, hanging-indent reference list.
+% The main report retains the previously selected classroom-report layout.
+\renewcommand{\bibfont}{\normalsize\baselineskip=12pt}
+\renewcommand{\bibsection}{\begin{center}\normalsize\bfseries References\end{center}}
+\raggedbottom
+\widowpenalty=10000
+\clubpenalty=10000
+
+% Page and heading layout adapted from Roman Garnett's style and its contributors.
+\makeatletter
+\renewcommand{\normalsize}{%
+  \@setfontsize\normalsize{10pt}{11pt}%
+  \abovedisplayskip=7pt plus 2pt minus 5pt
+  \belowdisplayskip=7pt plus 2pt minus 5pt
+  \abovedisplayshortskip=0pt plus 3pt
+  \belowdisplayshortskip=4pt plus 3pt minus 3pt}
+\normalsize
+\renewcommand{\small}{\@setfontsize\small{9pt}{10pt}}
+\renewcommand{\section}{\@startsection{section}{1}{0pt}%
+  {-2ex plus -0.5ex minus -0.2ex}{1.5ex plus 0.3ex minus 0.2ex}%
+  {\large\bfseries\raggedright}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{0pt}%
+  {-1.8ex plus -0.5ex minus -0.2ex}{0.8ex plus 0.2ex}%
+  {\normalsize\bfseries\raggedright}}
+\renewcommand{\maketitle}{%
+  \vspace*{0.1in}%
+  \begin{center}
+    \hrule height 4pt
+    \vspace{0.22in}
+    {\LARGE\bfseries\@title\par}
+    \vspace{0.2in}
+    \hrule height 1pt
+    \vspace{0.14in}
+    {\normalsize\@author\par}
+  \end{center}
+  \vspace{0.08in}}
+\renewenvironment{abstract}{%
+  \begin{center}\large\bfseries Abstract\end{center}
+  \begin{quote}}{\end{quote}\vspace{1ex}}
+\makeatother
+
+\newcommand{\TeamName}{Project team 10}
+\newcommand{\CourseName}{Image Processing and Pattern Recognition - 31256}
+\newcommand{\UniversityName}{University of Technology Sydney}
+\newcommand{\ReportDate}{15/10/2026}
+
+\title{Olympic Sports Action Classification\\
+\large Project Implementation}
+\author{\TeamName\\\UniversityName\\\CourseName\\
+Date: \ReportDate}
+
+
+\lstset{basicstyle=\ttfamily\scriptsize,breaklines=true,numbers=left,numberstyle=\tiny,numbersep=5pt,columns=fullflexible,keepspaces=true,showstringspaces=false,tabsize=4}
+
+% The source still compiles if only the text has been pasted into Overleaf.
+% Upload figures/ from the supplied ZIP to replace the missing-asset boxes.
+\newcommand{\reportfigure}[2]{%
+  \IfFileExists{figures/#1}{%
+    \includegraphics[width=\linewidth,height=#2,keepaspectratio]{figures/#1}%
+  }{%
+    \fbox{\parbox[c][#2][c]{0.90\linewidth}{\centering
+      Figure asset: \texttt{\detokenize{figures/#1}}\\[6pt]
+      Upload the figures folder supplied with this report.}}%
+  }%
+}
+
+\begin{document}
+\maketitle
+\section*{Team contributions}
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Team contributions.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.288\linewidth}>{\raggedright\arraybackslash}p{0.306\linewidth}>{\raggedright\arraybackslash}p{0.306\linewidth}@{}}\toprule
+\textbf{Member and student ID} & \textbf{Implementation contribution} & \textbf{Report contribution} \\ \midrule
+\rule{0pt}{32pt}\shortstack[l]{Pham Viet Hai Tran\\26158776} &  &  \\
+\rule{0pt}{32pt}\shortstack[l]{Wilson Wong\\25385651} &  &  \\
+\rule{0pt}{32pt}\shortstack[l]{Nuraz Ahamed\\25346521} &  &  \\
+\rule{0pt}{32pt}\shortstack[l]{Minh Khanh Le\\24914626} &  &  \\
+\rule{0pt}{32pt}\shortstack[l]{Ratanakethya Iv\\14545139} &  &  \\
+\rule{0pt}{32pt}\shortstack[l]{Muhammad Shaheer Alvi\\25358577} &  &  \\
+\bottomrule\end{tabular}
+\end{table}
+\clearpage
+\begin{abstract}
+This project compares four video representations for classifying 16 Olympic Sports actions: HOG, frozen ResNet-18 features, optical-flow histograms, and combined ResNet and flow features. All representations use a linear SVM and the same official dataset partitions. The pipeline processed 783 clips, with 649 used for training and 134 for testing. ResNet achieved the highest test mean average precision (mAP) of 69.24\% and 62.69\% accuracy. It improved mAP over HOG by 21.82 percentage points, with approximately 4.18 times the feature-extraction cost. Adding flow produced 68.49\% mAP and unchanged accuracy, although macro-F1 improved slightly. The results support the value of pretrained appearance features but do not show an overall mAP benefit from the chosen motion descriptor. Class-level results and error examples explain the mixed effect of fusion, while the discussion considers sampling, temporal information and the small test partition.
+\end{abstract}
+\section{Introduction}
+Sports action classification assigns an action label to a video clip. It can support video search, organisation and retrieval by reducing the need to label clips manually. The task is challenging because different sports can share similar poses and venues, while changes in viewpoint, image quality and athlete size affect the available visual information. The Olympic Sports dataset provides a suitable setting for examining these problems across 16 action classes (Niebles et al., 2010).
+
+Potential users include sports video editors, university sports clubs and staff who manage video archives. For example, a club could use predicted tennis-serve labels to find candidate clips for a coaching session, while an editor could group clips by event when preparing a highlights collection. This would reduce the number of clips that users need to inspect individually and make large collections easier to browse. Because classification errors remain possible, predicted labels would need human review. These are intended uses of the classification output; this project evaluates the underlying classifier rather than a deployed search tool or a coaching assessment system.
+
+This project implements the comparison proposed in A1. It examines whether simple motion information improves classification over appearance alone, and whether pretrained image features provide a useful improvement over a classical image descriptor. The two research questions are \textbf{RQ1:} Does adding optical-flow features to ResNet features improve sports action classification? \textbf{RQ2:} Do pretrained ResNet features outperform histogram of oriented gradients (HOG), and how do their feature-extraction costs compare?
+
+Four video representations were implemented: mean HOG descriptors (A), mean frozen ResNet-18 features (B), mean optical-flow histograms (C), and concatenated ResNet and flow features (D). Each representation uses a one-vs-rest linear support vector machine (SVM). Keeping the classifier and evaluation clips consistent helps focus the comparison on the representations. The implemented scope covers complete-clip classification; it does not include action localisation, athlete tracking or training a video network from scratch.
+
+The initial expectation was that pretrained appearance features would outperform HOG and that motion would help distinguish visually similar actions. These expectations were treated as hypotheses to evaluate, rather than conditions for project success. The following sections describe the implemented pipeline, project organisation, measured results, and the lessons and limitations of the comparison.
+
+\section{Overview of the project and methodology}
+\subsection{Dataset and preparation}
+The project uses the Stanford Olympic Sports release dated 7 September 2010. Its videos were collected from YouTube and class labels were annotated using Amazon Mechanical Turk (Stanford University, 2010). The team used these publicly available videos and supplied labels; no new recording or manual class annotation was required. The downloaded release contains 783 clips in 16 classes. The official lists assign 649 clips to training and 134 to testing.
+
+The classes cover jumping, throwing, weightlifting, diving and other sports: basketball layup, bowling, clean and jerk, discus throw, hammer throw, high jump, javelin throw, long jump, platform diving, pole vault, shot put, snatch, springboard diving, tennis serve, triple jump and gymnastic vault. Class sizes are uneven, making class-specific measures useful alongside overall accuracy.
+
+A download script saves archive URLs and SHA-256 checksums. A manifest records each clip identifier, file path, class and official partition. Class-name aliases reconcile the split lists with the archive folders, including the misspelled platform-diving folder. Duplicate identifiers and repeated file paths are rejected. The extraction stage checks file availability, sequence structure, sampled-frame decoding and exact duplicate file hashes. Clips with problems would be logged and excluded consistently from all four configurations.
+
+The original videos use the Norpix .seq format. A dedicated reader implements the relevant header, compressed-frame and padding layout documented in Piotr's Toolbox (Dollár, n.d.). It indexes frame records and decodes the selected frames directly, avoiding a separate conversion step. The pipeline also supports common video containers through OpenCV. These readers return RGB images and record frame count, dimensions, frame rate and sampled indices.
+
+\subsection{Frame sampling and preprocessing}
+For a clip containing T frames, up to K = 10 unique indices are sampled uniformly from 0 to T - 2. Appearance features use the frame at each selected index t. Motion features use that frame and its immediately following original frame t + 1. This distinction matters: optical flow is computed between neighbouring frames, rather than between widely separated points in the sampled sequence. Clips containing fewer available pairs use their unique pairs; clips shorter than two frames are rejected.
+
+All sampled frames are resized directly to 224 $\times$ 224 pixels using bilinear interpolation. HOG and flow use grayscale images. ResNet uses RGB values scaled to [0, 1], followed by ImageNet channel normalisation with means (0.485, 0.456, 0.406) and standard deviations (0.229, 0.224, 0.225). No random augmentation is applied. Direct resizing follows A1, although it can distort the original aspect ratio.
+
+Each descriptor is averaged across the sampled frames or pairs to obtain one vector per clip. The pooled vector is divided by its L2 norm, using a minimum denominator of 10$^{-8}$ to handle zero vectors. Pooling keeps the classifier input small and consistent across clips of different lengths. However, averaging does not preserve the order of action stages.
+
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Implemented video representations. All configurations use a one-vs-rest linear SVM.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.063\linewidth}>{\raggedright\arraybackslash}p{0.306\linewidth}>{\raggedright\arraybackslash}p{0.144\linewidth}>{\raggedright\arraybackslash}p{0.387\linewidth}@{}}\toprule
+\textbf{ID} & \textbf{Representation} & \textbf{Dimensions} & \textbf{Purpose} \\ \midrule
+A & Mean HOG & 6,084 & Classical appearance baseline \\
+B & Mean frozen ResNet-18 & 512 & Pretrained appearance baseline \\
+C & Mean flow histogram & 32 & Motion information alone \\
+D & ResNet and flow concatenation & 544 & Added value of motion over B \\
+\bottomrule\end{tabular}
+\end{table}
+\subsection{HOG and frozen ResNet features}
+HOG describes the distribution of local image gradients and was originally developed for human detection (Dalal \& Triggs, 2005). Configuration A adapts it to whole-frame action classification. It uses nine unsigned orientation bins, 16 $\times$ 16-pixel cells, 2 $\times$ 2-cell blocks and L2-Hys block normalisation. At the selected resolution, the resulting vector has 6,084 values. These frame vectors are averaged and L2-normalised before SVM training.
+
+Configuration B uses ResNet-18, a residual network for image recognition (He et al., 2016), with torchvision's ImageNet-pretrained IMAGENET1K\_V1 weights (PyTorch contributors, n.d.). Its final classification layer is replaced by an identity operation, producing 512 values after global average pooling. The model stays in evaluation mode, with gradients disabled and batch-normalisation statistics fixed. Up to ten sampled frames are processed in a batch, then averaged and L2-normalised. The network is not fine-tuned on Olympic Sports. This configuration benefits from prior training on external ImageNet data, which should be considered when comparing it with HOG.
+
+\subsection{Optical flow and feature combination}
+Configuration C estimates dense motion using Farnebäck optical flow on each adjacent grayscale pair (Farnebäck, 2003). The implementation uses pyramid scale 0.5, three pyramid levels, window size 15, three iterations, polynomial neighbourhood size 5 and polynomial sigma 1.2. For each pixel, horizontal and vertical displacement are converted to magnitude and orientation.
+
+Each flow field is divided into a 2 $\times$ 2 spatial grid. Within each cell, motion magnitudes vote into eight orientation bins spanning [0, 2$\pi$). The four histograms are concatenated to form 32 values. Histograms are averaged across the selected pairs and L2-normalised. This representation describes local motion distributions, but it does not identify the athlete separately from background movement.
+
+Configuration D concatenates the separately normalised 512-dimensional ResNet vector and 32-dimensional flow vector. Both blocks have equal L2 weighting, and the combined vector has 544 values. The method reuses the features from B and C. Combining appearance and motion follows the general motivation of two-stream action recognition (Simonyan \& Zisserman, 2014), but this implementation uses fixed descriptors and a linear SVM rather than a trained two-stream video network.
+
+\subsection{Training and evaluation protocol}
+The official test partition is preserved. A stratified 20\% subset of the 649 training clips is reserved for validation using seed 42. This produces 519 fitting clips and 130 validation clips, with all 16 classes represented in both subsets. All four configurations use the same usable clips and partition assignments. Frames from a clip remain together in that clip's partition.
+
+For each representation, the SVM regularisation parameter C is selected from \{0.01, 0.1, 1, 10\} using validation mean average precision (mAP). Candidates are processed in ascending order, so the smaller C is retained if scores tie. Model selection finishes for all four configurations before test evaluation. Each selected classifier is then refitted on all 649 training clips and evaluated on the 134 official test clips. The SVM uses a maximum of 20,000 iterations, and convergence warnings are treated as errors.
+
+The primary measure is mAP. For each class, average precision (AP) ranks clips by the corresponding SVM decision score in a one-vs-rest comparison. The implementation uses scikit-learn's non-interpolated AP, which sums precision weighted by each increase in recall (Scikit-learn developers, n.d.). mAP is the mean of the 16 class AP values. Top-1 accuracy chooses the class with the largest score, while macro-F1 averages F1 across classes. Decision scores are not probabilities. Row-normalised confusion matrices show the fraction of each true class assigned to each predicted class.
+
+A majority-class predictor uses the most frequent training label as a basic accuracy reference. Timing separates decoding, feature extraction, classifier fitting and inference from cached features. Extraction includes resizing, normalisation, descriptor computation and pooling, while excluding decoding, model loading and initial warmup. Original cold-run timings are retained when features are read from cache. For D, extraction cost is calculated as the sum of B and C, excluding the small concatenation copy.
+
+\subsection{Implementation and reproducibility}
+The final implementation is organised into Python modules for configuration, data preparation, feature extraction, experiments, prediction and error visualisation. The command-line interface supports preparation, extraction, validation, final evaluation and prediction from a saved classifier. A configuration file records descriptor settings, sampling, random seed and SVM candidates. Feature-cache keys include file hashes, configuration values and library versions to prevent incompatible features from being reused.
+
+The experiment saves clip partitions, validation scores, class order, configuration, software versions, hardware information, model files, per-clip decision scores and metric tables. The reported run used Python 3.12.14 on an ARM-based macOS computer with CPU execution and one thread. Recorded package versions were NumPy 2.5.4, OpenCV 5.0.0.93, scikit-image 0.26.0, scikit-learn 1.9.1, PyTorch 2.14.1 and torchvision 0.29.1. The metadata does not identify the exact CPU model, so runtime comparisons are limited to this recorded environment.
+
+\section{Project management and team work}
+\subsection{Work organisation and integration}
+The six-member team organised the project around six functional areas: data preparation, HOG, ResNet, motion and fusion, evaluation, and report integration. All six members are listed on the cover page, with the contribution record in Table 1. The development workflow follows the dependency between these areas: establish the manifest and reader, extract consistent features, select classifiers on validation data, evaluate fixed settings, and interpret the exported results.
+
+A shared configuration and common feature bundle provide the interface between implementation areas. Data and feature modules use the same class names, sampling scheme and clip identifiers. Evaluation consumes the saved vectors rather than repeating extraction for each C value. This structure allows descriptor work and evaluation work to be checked separately, while ensuring that the final comparison uses consistent inputs.
+
+Integration is supported by automated checks for decoding, short clips, adjacent-frame sampling, feature normalisation, duplicate entries, score ordering and training-only model selection. Saved manifests, audit files and validation tables also provide reviewable evidence. The report combines these outputs into a common account of the research questions, results and limitations.
+
+\subsection{Scope management}
+The implemented study retains the four core configurations, K = 10 sampling and the small validation search proposed in A1. This keeps the work focused on the two research questions. Direct SEQ decoding and cached features reduce conversion and repeated extraction work. The optional K = 5 versus K = 10 validation study is not part of the completed results; the report therefore makes no claim that ten samples are optimal. A broader sampling study and more complex video models remain future work.
+
+\section{Results}
+\subsection{Data audit and model selection}
+All 783 clips were retained in the common usable dataset. The audit records no missing files, sampled-frame decoding failures or exact duplicate SHA-256 hashes. The official 649 training and 134 test clips were preserved. These checks establish that the reported configurations use the same data; they do not establish that every frame is valid or that different clips are visually unrelated.
+
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Validation model selection using 130 clips. Values are mAP percentages.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.252\linewidth}>{\raggedright\arraybackslash}p{0.131\linewidth}>{\raggedright\arraybackslash}p{0.131\linewidth}>{\raggedright\arraybackslash}p{0.131\linewidth}>{\raggedright\arraybackslash}p{0.131\linewidth}>{\raggedright\arraybackslash}p{0.126\linewidth}@{}}\toprule
+\textbf{Configuration} & \textbf{C = 0.01} & \textbf{C = 0.1} & \textbf{C = 1} & \textbf{C = 10} & \textbf{Selected C} \\ \midrule
+A HOG & 21.27 & 43.33 & 54.28 & 58.00 & 10 \\
+B ResNet & 48.59 & 71.77 & 79.00 & 82.01 & 10 \\
+C Flow & 28.92 & 35.36 & 37.40 & 35.86 & 1 \\
+D ResNet + flow & 53.70 & 70.60 & 79.63 & 81.47 & 10 \\
+\bottomrule\end{tabular}
+\end{table}
+The selected C was 10 for A, B and D, and 1 for C. ResNet had the highest validation mAP at 82.01\%, followed by the combined representation at 81.47\%. These values guided classifier selection only; they are separate from the held-out test results. The lower test scores reported below show why validation performance should not be presented as final performance.
+
+\subsection{Overall test performance}
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Performance on the same 134 official test clips. All scores are percentages.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.315\linewidth}>{\raggedright\arraybackslash}p{0.126\linewidth}>{\raggedright\arraybackslash}p{0.153\linewidth}>{\raggedright\arraybackslash}p{0.153\linewidth}>{\raggedright\arraybackslash}p{0.153\linewidth}@{}}\toprule
+\textbf{Configuration} & \textbf{mAP} & \textbf{Accuracy} & \textbf{Macro-F1} & \textbf{Correct clips} \\ \midrule
+A HOG & 47.42 & 41.79 & 39.42 & 56 / 134 \\
+B ResNet & 69.24 & 62.69 & 58.85 & 84 / 134 \\
+C Flow & 37.11 & 35.82 & 32.62 & 48 / 134 \\
+D ResNet + flow & 68.49 & 62.69 & 59.69 & 84 / 134 \\
+\bottomrule\end{tabular}
+\end{table}
+ResNet achieved the highest test mAP, while the combined representation achieved the highest macro-F1. B and D had equal top-1 accuracy, with 84 correct predictions each. HOG performed below both representations containing ResNet, and flow alone produced the lowest overall scores. The majority-class predictor selected clean and jerk from the training labels and achieved 7.46\% test accuracy, or 10 correct clips. All four learned classifiers exceeded this reference.
+
+\begin{figure}[H]\centering
+\reportfigure{overall.png}{2.7083333333333335in}
+\caption{Test performance and mean feature-extraction cost. Scores are computed from the saved test predictions; timings are from the same CPU experiment. Extraction excludes decoding and model setup.}
+\end{figure}
+\subsection{Answers to the research questions}
+\textbf{RQ1:} Adding flow reduced mAP from 69.24\% to 68.49\%, a change of -0.75 percentage points. Accuracy remained at 62.69\%, while macro-F1 increased from 58.85\% to 59.69\%, a gain of 0.84 percentage points. D corrected eight clips that B misclassified, but also misclassified eight clips that B classified correctly. The same total number of correct clips therefore hides changes in individual predictions. The result does not support an overall mAP improvement from this particular motion representation, although its effect varies across classes.
+
+\textbf{RQ2:} ResNet increased mAP by 21.82 percentage points over HOG and accuracy by 20.90 percentage points. It produced 28 additional correct predictions on the test partition. However, its mean feature-extraction cost was 93.34 ms per clip compared with 22.35 ms for HOG, approximately 4.18 times higher. Within this experiment, pretrained appearance features provided a substantial performance benefit at a higher extraction cost.
+
+\subsection{Class-level performance and confusion}
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Official class counts and class AP for B and D. Delta is D minus B in percentage points.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.351\linewidth}>{\raggedright\arraybackslash}p{0.081\linewidth}>{\raggedright\arraybackslash}p{0.081\linewidth}>{\raggedright\arraybackslash}p{0.131\linewidth}>{\raggedright\arraybackslash}p{0.131\linewidth}>{\raggedright\arraybackslash}p{0.126\linewidth}@{}}\toprule
+\textbf{Sport} & \textbf{Train} & \textbf{Test} & \textbf{B AP \%} & \textbf{D AP \%} & \textbf{Delta} \\ \midrule
+Basketball layup & 40 & 10 & 94.55 & 91.92 & -2.63 \\
+Bowling & 40 & 9 & 91.76 & 87.77 & -3.99 \\
+Clean and jerk & 56 & 10 & 63.35 & 53.08 & -10.27 \\
+Discus throw & 52 & 11 & 51.18 & 48.18 & -3.01 \\
+Hammer throw & 38 & 8 & 35.90 & 34.34 & -1.55 \\
+High jump & 56 & 11 & 45.04 & 63.89 & +18.85 \\
+Javelin throw & 21 & 4 & 25.82 & 81.25 & +55.43 \\
+Long jump & 40 & 6 & 81.79 & 71.90 & -9.88 \\
+Platform diving & 48 & 9 & 90.83 & 98.89 & +8.06 \\
+Pole vault & 32 & 8 & 77.25 & 65.16 & -12.10 \\
+Shot put & 53 & 10 & 58.76 & 60.37 & +1.61 \\
+Snatch & 40 & 9 & 80.33 & 59.11 & -21.22 \\
+Springboard diving & 38 & 8 & 100.00 & 98.61 & -1.39 \\
+Tennis serve & 32 & 7 & 91.29 & 92.01 & +0.71 \\
+Triple jump & 17 & 4 & 36.08 & 11.83 & -24.25 \\
+Vault & 46 & 10 & 83.92 & 77.50 & -6.41 \\
+\bottomrule\end{tabular}
+\end{table}
+The largest AP improvement from fusion occurred in javelin throw (+55.43 percentage points), followed by high jump (+18.85) and platform diving (+8.06). The largest decreases occurred in triple jump (-24.25), snatch (-21.22) and pole vault (-12.10). Javelin throw and triple jump each contain only four test clips, so a small change in ranking can produce a large AP change. Figure 2 shows the direction and size of these class-specific differences.
+
+\begin{figure}[H]\centering
+\reportfigure{ap_delta.png}{3.75in}
+\caption{Change in class AP when flow is added to ResNet. Positive values favour D and negative values favour B. Test sample counts are shown beside each class; the chart describes this fixed test partition.}
+\end{figure}
+For B, springboard diving reached 100.00\% AP, while basketball layup, bowling and tennis serve each exceeded 91\% AP. Its lowest AP was for javelin throw at 25.82\%. A high class AP describes ranking across the test set; it does not imply that every clip receives the correct top-1 label.
+
+The confusion matrix in Figure 3 shows that B predicted discus throw for six of the eight hammer-throw clips. It also predicted snatch for five of the ten clean-and-jerk clips, clean and jerk for three of the nine snatch clips, and long jump for two of the four triple-jump clips. These counts identify recurring classification difficulties. They are consistent with the challenge of separating related events, but do not establish which visual cues caused each mistake.
+
+\begin{figure}[H]\centering
+\reportfigure{confusion.png}{4.930555555555555in}
+\caption{Row-normalised confusion matrix for B on 134 test clips. Rows show true classes and columns show predicted classes. Each row sums to 100\%; darker cells indicate a larger share of that class.}
+\end{figure}
+\subsection{Computational cost}
+\begin{table}[H]\centering\small\setlength{\tabcolsep}{3pt}
+\caption{Runtime measurements in the recorded CPU environment. Fitting uses all 649 training clips.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.279\linewidth}>{\raggedright\arraybackslash}p{0.216\linewidth}>{\raggedright\arraybackslash}p{0.189\linewidth}>{\raggedright\arraybackslash}p{0.216\linewidth}@{}}\toprule
+\textbf{Configuration} & \textbf{Extraction ms/clip} & \textbf{SVM fitting s} & \textbf{Cached inference $\mu$s/clip} \\ \midrule
+A HOG & 22.35 & 7.882 & 8.25 \\
+B ResNet & 93.34 & 0.143 & 1.33 \\
+C Flow & 33.22 & 0.010 & 0.75 \\
+D ResNet + flow & 126.56 & 0.194 & 1.08 \\
+\bottomrule\end{tabular}
+\end{table}
+Mean decoding time was 5.99 ms per test clip. D added 33.22 ms of extraction work over B, an increase of approximately 35.59\%, without improving overall mAP or accuracy. HOG was cheapest to extract but had the longest final SVM fitting time. Its much larger vector size provides a plausible explanation, although solver behaviour also affects fitting time and was not separately investigated.
+
+Cached SVM inference was very small compared with extraction time. These measurements divide batch decision-score timing by the number of test clips, so they should not be interpreted as independently measured single-clip response times. Adding average decoding, extraction and cached inference gives estimated costs of 28.34, 99.32, 39.21 and 132.55 ms per clip for A to D. These are component-based estimates, not a separate end-to-end latency benchmark. Dataset download and model initialisation are excluded.
+
+\subsection{Error inspection and implementation checks}
+The error review covers ten clips from different true classes, prioritising cases where B and D disagree. Figure 4 presents four illustrative frames. For basketball layup, D corrected B's platform-diving prediction. For platform diving, D corrected a springboard-diving prediction. In contrast, D changed a correct discus-throw prediction to snatch and a correct springboard-diving prediction to platform diving. These examples demonstrate both benefits and losses from fusion.
+
+\begin{figure}[H]\centering
+\reportfigure{errors.png}{3.8194444444444446in}
+\caption{Illustrative test clips where B and D differ. Top row: D corrects B. Bottom row: D changes a correct B prediction to an incorrect label. Frames are from Stanford Olympic Sports, originally sourced from YouTube (Stanford University, 2010); clip identifiers and sampled-frame indices are included.}
+\end{figure}
+The broader gallery contains low-resolution frames, a blurred high-jump frame, athletes occupying a small part of the image, and visually similar diving or throwing environments. These are observations from selected frames. A single frame cannot establish camera movement, and background similarity alone does not prove that the classifier relied on the background. Full-clip inspection or controlled experiments would be needed to test those explanations.
+
+The project records 21 passing automated tests covering reader behaviour, sampling, feature calculation, validation isolation and exported outputs. A saved D classifier was also reloaded for prediction from a SEQ clip, and its scores matched the exported evaluation scores. For this report, mAP was independently recomputed from the saved decision-score columns and matched the stored metric files for all four configurations. These checks support implementation consistency; they do not remove the dataset and modelling limitations discussed next.
+
+\section{Discussion and challenges}
+\subsection{Achievement of the original goals}
+The core goals in A1 were achieved: a working pipeline prepares the official dataset, extracts four representations, selects SVM parameters without using test scores, and saves comparable evaluation outputs. RQ2 supports the expected benefit of pretrained features, although the improvement comes with a measurable extraction cost. RQ1 produced a mixed result. Adding flow helped some classes and slightly improved macro-F1, but did not improve overall mAP or accuracy. The project therefore answers the research questions without requiring both initial hypotheses to be supported.
+
+ResNet offers the strongest overall balance among the tested configurations when mAP and accuracy are prioritised. It achieves higher mAP than D with lower extraction cost, while matching D's accuracy. HOG may remain relevant where feature-extraction resources are limited and lower performance is acceptable. D may be useful for particular classes, but the current results do not justify a general claim that fusion is the better option.
+
+\subsection{Technical challenges and adjustments}
+A practical challenge was using the original SEQ data consistently. Ordinary video decoding could not be assumed to support this format, and the archive and split lists contain naming differences. The implementation addresses these issues with a dedicated sequence reader, explicit class aliases and an audit trail. Reader tests cover raw and compressed examples, frame padding, truncation and short clips. Direct reading also avoids introducing an additional conversion stage into the comparison.
+
+Motion extraction requires careful sampling. Uniformly sampled appearance frames can be far apart, so estimating flow between successive sampled frames would change the intended motion scale. The implemented reader instead retrieves each selected frame and its original neighbour. This adjustment preserves the adjacent-frame design in A1 and is checked by automated tests.
+
+Repeated feature extraction would add unnecessary computation during SVM selection. The pipeline addresses this with cached clip-level vectors and a configuration-sensitive cache key. The cache retains the original extraction timings, allowing repeated validation to reuse vectors without presenting cache access as faster feature computation. CPU execution with one thread also provides a consistent environment for the reported comparison.
+
+Another challenge is interpreting fusion when different metrics disagree. Equal accuracy initially appears to imply equivalent predictions, but the per-clip review reveals eight corrections and eight new errors. Reporting macro-F1, per-class AP and individual cases makes this trade-off visible. The observed losses also show why a plausible method should be tested rather than assumed to improve performance.
+
+\subsection{Limitations and interpretation}
+The test partition contains only 134 clips, with four to eleven examples per class. One additional correct prediction changes overall accuracy by about 0.75 percentage points, and small classes can show large AP changes when a few scores change order. No confidence intervals or significance tests were computed, so the 0.75-point mAP difference between B and D should not be described as a statistically established advantage. The conclusion applies to this configuration and split.
+
+The audit checks exact file duplicates, while the official split operates at clip level. A filename-based check found one original YouTube source identifier represented in both partitions: its snatch segments are in training and its clean-and-jerk segments are in testing. The listed frame intervals do not overlap, but the source may share an athlete, venue or recording conditions. The stratified validation split also does not group clips by original source. Consequently, the experiment should not be interpreted as evaluation on entirely independent recording sources.
+
+Mean pooling removes the order of movement. This is especially relevant when related events are distinguished by sequences of stages rather than by one pose. The flow descriptor uses a coarse grid and averages directions across the clip. It cannot separate athlete motion from camera or background motion. Such properties may explain why flow alone is weak and why fusion sometimes adds unhelpful information, but their causal effects were not isolated in this study.
+
+The combination uses equal block weighting without a validation study of alternative weights. Direct 224 $\times$ 224 resizing can change body and equipment proportions. The sample count, crop strategy, flow grid and pretrained network were fixed rather than extensively compared. ResNet also benefits from external ImageNet training, so B versus A compares practical feature choices with different prior training histories. Results should not be presented as a universal comparison of learned and handcrafted methods.
+
+The lower test mAP relative to validation mAP may reflect the small validation sample, differences between partitions or parameter selection effects. The available experiment does not separate these causes. Similarly, the recorded hardware metadata supports comparison within this run but is insufficient for a detailed hardware benchmark. These limits favour careful interpretation over claims of deployment readiness or state-of-the-art performance.
+
+\subsection{Future work and lessons learned}
+A first extension would compare K = 5 and K = 10 using validation data, recording both performance and extraction cost as proposed in A1. Additional preprocessing studies could compare direct resizing with aspect-ratio-preserving crops. Fusion weights could be selected on validation data to reduce the influence of an unhelpful motion block. These choices should be fixed before a new final evaluation, with the already-inspected test results acknowledged.
+
+For better motion modelling, future work could use athlete-centred crops, camera-motion compensation or temporal pooling that preserves coarse action stages. A pretrained video model would provide another comparison if time and computing resources allowed. Source-grouped validation and a separate source-independent holdout would test whether the classifier transfers to new recordings. Confidence intervals and repeated development splits would also help show the uncertainty around small differences.
+
+The main lesson is that useful action information comes from both what a clip looks like and how movement is represented. Pretrained appearance features can transfer effectively to a small dataset, while a simple motion histogram may help selected classes without improving the overall result. The project also shows that reliable comparisons depend on data checks, consistent preprocessing, score-based metrics and a clear separation of development and testing. Negative or mixed findings remain informative when the experiment makes their scope clear.
+
+\section{Conclusion}
+This project completed a reproducible comparison of HOG, frozen ResNet-18, optical-flow histograms and combined appearance-motion features for 16-class Olympic Sports classification. All 783 clips were processed, and the official training and test partitions were retained. ResNet achieved the highest test mAP of 69.24\% and 62.69\% accuracy. Compared with HOG, it improved mAP by 21.82 percentage points while requiring approximately 4.18 times the feature-extraction cost.
+
+Adding flow produced 68.49\% mAP, the same 62.69\% accuracy and slightly higher macro-F1. It corrected eight ResNet errors but introduced eight new ones, showing that its value depends on the class and clip. Among the tested methods, ResNet alone offers the clearest overall balance of classification performance and cost. The study meets the core implementation goals and identifies practical next steps in sampling, fusion, temporal representation and source-independent evaluation.
+
+\clearpage
+\section*{References}
+\noindent\hangindent=0.5in\hangafter=1 Dalal, N., \& Triggs, B. (2005). Histograms of oriented gradients for human detection. In \emph{2005 IEEE Computer Society Conference on Computer Vision and Pattern Recognition} (Vol. 1, pp. 886-893). IEEE. \url{https://doi.org/10.1109/CVPR.2005.177}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 Dollár, P. (n.d.). \emph{seqReaderPlugin.m} [Source code]. Piotr's Computer Vision Matlab Toolbox. Retrieved October 14, 2026, from \url{https://github.com/pdollar/toolbox/blob/master/videos/seqReaderPlugin.m}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 Farnebäck, G. (2003). Two-frame motion estimation based on polynomial expansion. In J. Bigun \& T. Gustavsson (Eds.), \emph{Image analysis} (pp. 363-370). Springer. \url{https://doi.org/10.1007/3-540-45103-X_50}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 He, K., Zhang, X., Ren, S., \& Sun, J. (2016). Deep residual learning for image recognition. In \emph{2016 IEEE Conference on Computer Vision and Pattern Recognition} (pp. 770-778). IEEE. \url{https://doi.org/10.1109/CVPR.2016.90}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 Niebles, J. C., Chen, C.-W., \& Fei-Fei, L. (2010). Modeling temporal structure of decomposable motion segments for activity classification. In K. Daniilidis, P. Maragos, \& N. Paragios (Eds.), \emph{Computer vision - ECCV 2010} (pp. 392-405). Springer. \url{https://doi.org/10.1007/978-3-642-15552-9_29}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 PyTorch contributors. (n.d.). \emph{resnet18}. Torchvision documentation. Retrieved October 14, 2026, from \url{https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 Scikit-learn developers. (n.d.). \emph{average\_precision\_score}. Scikit-learn documentation. Retrieved October 14, 2026, from \url{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 Simonyan, K., \& Zisserman, A. (2014). Two-stream convolutional networks for action recognition in videos. In \emph{Advances in neural information processing systems} (Vol. 27, pp. 568-576). Curran Associates. \url{https://arxiv.org/abs/1406.2199}\par
+\vspace{4pt}
+\noindent\hangindent=0.5in\hangafter=1 Stanford University. (2010). \emph{Olympic sports dataset} (Release 2010.09.07) [Data set]. \url{https://cs.stanford.edu/groups/vision/Datasets/OlympicSports/}\par
+\vspace{4pt}
+\clearpage
+\appendix
+\section{Implementation code}
+The listings reproduce the final Python pipeline used for the reported comparison, together with its configuration, entry scripts and automated tests. Short explanatory notes identify the purpose of each file. The original comments and docstrings are retained. Printed line wrapping is for readability. All listings are embedded directly in the LaTeX report source. The earlier exploratory notebook is included in the source package as a development artefact and is not used as evidence for the reported results.
+
+\subsection{Experiment configuration}
+Central settings keep preprocessing, sampling and model selection consistent across representations.
+
+\begin{lstlisting}[caption={configs/baseline.json}]
+{
+  "samples": 10,
+  "image_size": 224,
+  "seed": 42,
+  "validation_fraction": 0.2,
+  "svm_c": [0.01, 0.1, 1.0, 10.0],
+  "svm_max_iter": 20000,
+  "device": "cpu",
+  "resnet_batch_size": 10,
+  "resnet_weights": "IMAGENET1K_V1",
+  "hog_orientations": 9,
+  "hog_cell_size": 16,
+  "hog_block_cells": 2,
+  "flow_grid": 2,
+  "flow_bins": 8,
+  "flow_pyr_scale": 0.5,
+  "flow_levels": 3,
+  "flow_winsize": 15,
+  "flow_iterations": 3,
+  "flow_poly_n": 5,
+  "flow_poly_sigma": 1.2
+}
+\end{lstlisting}
+\subsection{Configuration validation}
+The immutable configuration validates descriptor sizes, sampling, SVM candidates and flow parameters.
+
+\begin{lstlisting}[caption={src/olympic\_actions/config.py}]
+from dataclasses import asdict, dataclass
+import json
+from pathlib import Path
+
+
+@dataclass(frozen=True)
+class Config:
+    samples: int = 10
+    image_size: int = 224
+    seed: int = 42
+    validation_fraction: float = 0.2
+    svm_c: tuple = (0.01, 0.1, 1.0, 10.0)
+    svm_max_iter: int = 20000
+    device: str = "cpu"
+    resnet_batch_size: int = 10
+    resnet_weights: str = "IMAGENET1K_V1"
+    hog_orientations: int = 9
+    hog_cell_size: int = 16
+    hog_block_cells: int = 2
+    flow_grid: int = 2
+    flow_bins: int = 8
+    flow_pyr_scale: float = 0.5
+    flow_levels: int = 3
+    flow_winsize: int = 15
+    flow_iterations: int = 3
+    flow_poly_n: int = 5
+    flow_poly_sigma: float = 1.2
+
+    def __post_init__(self):
+        for name in ("samples", "image_size", "resnet_batch_size", "svm_max_iter",
+                     "hog_cell_size", "hog_block_cells", "hog_orientations",
+                     "flow_grid", "flow_bins", "flow_levels", "flow_iterations",
+                     "flow_winsize"):
+            if getattr(self, name) < 1:
+                raise ValueError(f"{name} must be positive")
+        if self.image_size // self.hog_cell_size < self.hog_block_cells:
+            raise ValueError("Image is too small for HOG blocks")
+        if self.image_size < self.flow_grid:
+            raise ValueError("Image is too small for the flow grid")
+        if not 0 < self.validation_fraction < 1:
+            raise ValueError("validation_fraction must be between zero and one")
+        if not self.svm_c or any(c <= 0 for c in self.svm_c):
+            raise ValueError("svm_c must contain positive values")
+        if self.resnet_weights != "IMAGENET1K_V1":
+            raise ValueError("This experiment requires frozen IMAGENET1K_V1 weights")
+        if self.flow_poly_n not in (5, 7) or not 0 < self.flow_pyr_scale < 1:
+            raise ValueError("Invalid Farneback settings")
+
+    @classmethod
+    def load(cls, path=None):
+        if path is None:
+            return cls()
+        values = json.loads(Path(path).read_text())
+        if "svm_c" in values:
+            values["svm_c"] = tuple(values["svm_c"])
+        return cls(**values)
+
+    def to_dict(self):
+        return asdict(self)
+\end{lstlisting}
+\subsection{Dataset preparation and video reading}
+The manifest parser preserves official partitions. The reader handles SEQ frame structure, original neighbours and RGB conversion.
+
+\begin{lstlisting}[caption={src/olympic\_actions/data.py}]
+"""Official split parsing and Norpix SEQ/video readers (RGB, zero-based indices)."""
+import csv
+from dataclasses import dataclass
+import hashlib
+from pathlib import Path
+import struct
+from time import perf_counter
+
+import cv2
+import numpy as np
+
+CLASSES = (
+    "basketball_layup", "bowling", "clean_and_jerk", "discus_throw",
+    "hammer_throw", "high_jump", "javelin_throw", "long_jump",
+    "diving_platform_10m", "pole_vault", "shot_put", "snatch",
+    "diving_springboard_3m", "tennis_serve", "triple_jump", "vault",
+)
+ALIASES = {"platform_10m": "diving_platform_10m", "springboard_3m": "diving_springboard_3m",
+           "diving_platfrom_10m": "diving_platform_10m",  # Typo in Stanford's archive folder.
+           "platform_diving": "diving_platform_10m", "springboard_diving": "diving_springboard_3m",
+           "gymnastic_vault": "vault"}
+VIDEO_SUFFIXES = {".seq", ".avi", ".mp4", ".mov", ".mkv"}
+
+
+def canonical_class(name):
+    label = name.strip().lower().replace(" ", "_").replace("-", "_")
+    return ALIASES.get(label, label)
+
+
+@dataclass(frozen=True)
+class Clip:
+    clip_id: str
+    path: Path
+    label: str
+    split: str
+
+
+def write_csv(path, rows, fields=None):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = list(rows)
+    if fields is None:
+        fields = list(rows[0]) if rows else []
+    with path.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def official_manifest(video_root, split_root, output):
+    """Use the provided per-class text lists; never infer/randomise test membership."""
+    index = {}
+    for path in sorted(Path(video_root).rglob("*")):
+        if path.suffix.lower() not in VIDEO_SUFFIXES:
+            continue
+        label = canonical_class(path.parent.name)
+        key = (label, path.stem)
+        if key in index:
+            raise ValueError(f"Ambiguous video ID {key}: {index[key]} and {path}")
+        index[key] = path.resolve()
+    rows = []
+    for split in ("train", "test"):
+        lists = sorted((Path(split_root) / split).glob("*.txt"))
+        if not lists:
+            raise ValueError(f"No official {split} lists under {split_root}")
+        for listing in lists:
+            label = canonical_class(listing.stem)
+            if label not in CLASSES:
+                raise ValueError(f"Unknown sport in {listing}")
+            for line in listing.read_text().splitlines():
+                stem = Path(line.strip()).stem
+                if not stem:
+                    continue
+                path = index.get((label, stem), Path(video_root).resolve() / label / (stem + ".seq"))
+                rows.append(dict(clip_id=f"{label}/{stem}", path=str(path), label=label, split=split))
+    write_csv(output, rows)
+    return load_manifest(output)
+
+
+def load_manifest(path):
+    clips, ids, paths = [], set(), set()
+    with Path(path).open(newline="", encoding="utf-8") as source:
+        reader = csv.DictReader(source)
+        if not {"clip_id", "path", "label", "split"}.issubset(reader.fieldnames or []):
+            raise ValueError("Manifest requires clip_id,path,label,split")
+        for row in reader:
+            video = Path(row["path"])
+            if not video.is_absolute():
+                video = Path(path).resolve().parent / video
+            video = video.resolve()
+            label = canonical_class(row["label"])
+            if row["split"] not in {"train", "test"} or label not in CLASSES:
+                raise ValueError(f"Invalid label or partition: {row}")
+            if not row["clip_id"] or row["clip_id"] in ids or video in paths:
+                raise ValueError(f"Duplicate ID/path in manifest: {row}")
+            ids.add(row["clip_id"])
+            paths.add(video)
+            clips.append(Clip(row["clip_id"], video, label, row["split"]))
+    if not clips:
+        raise ValueError("Manifest is empty")
+    return clips
+
+
+def sample_indices(frame_count, samples):
+    if frame_count < 2:
+        raise ValueError("At least two decoded frames are required")
+    if samples < 1:
+        raise ValueError("samples must be positive")
+    return np.unique(np.linspace(0, frame_count - 2, min(samples, frame_count - 1), dtype=int))
+
+
+class SeqReader:
+    """Read 8-bit raw/JPEG/PNG SEQ, using the layout documented by Piotr's toolbox.
+
+    Compressed frame length includes its 4-byte prefix. Timestamp padding is
+    either 8 or 16 bytes. Unsupported Bayer/16-bit streams fail explicitly.
+    """
+    def __init__(self, path):
+        self.file = Path(path).open("rb")
+        try:
+            header = self.file.read(1024)
+            if len(header) != 1024 or struct.unpack_from("<I", header)[0] != 0xFEED:
+                raise ValueError("Invalid Norpix SEQ header")
+            if header[4:24].decode("utf-16-le") != "Norpix seq":
+                raise ValueError("Invalid SEQ signature")
+            version, header_size = struct.unpack_from("<II", header, 28)
+            if header_size != 1024 or version > 4:
+                raise ValueError(f"Unsupported SEQ header/version: {header_size}/{version}")
+            (self.width, self.height, self.bits, real_bits, self.image_bytes,
+             self.format, self.frame_count, _, self.stride) = struct.unpack_from("<9I", header, 548)
+            self.fps = struct.unpack_from("<d", header, 584)[0]
+            if real_bits != 8 or self.bits not in (8, 24) or min(self.width, self.height, self.frame_count) < 1:
+                raise ValueError("Unsupported SEQ dimensions/bit depth/frame count")
+            self.file.seek(0, 2)
+            size = self.file.tell()
+            self.offsets = []
+            if self.format in (100, 200):
+                if self.stride < self.image_bytes or size < 1024 + self.stride * (self.frame_count - 1) + self.image_bytes:
+                    raise ValueError("Truncated raw SEQ")
+                self.offsets = [1024 + i * self.stride for i in range(self.frame_count)]
+            elif self.format in (1, 2, 102, 201):
+                offset, extra = 1024, 8
+                for i in range(self.frame_count):
+                    self.offsets.append(offset)
+                    self.file.seek(offset)
+                    prefix = self.file.read(4)
+                    if len(prefix) != 4:
+                        raise ValueError(f"Truncated SEQ frame {i}")
+                    length = struct.unpack("<I", prefix)[0]
+                    if length < 5 or offset + length + 8 > size:
+                        raise ValueError(f"Invalid SEQ frame length at {i}")
+                    next_offset = offset + length + extra
+                    if i == 0 and self.frame_count > 1:
+                        self.file.seek(next_offset)
+                        if self.file.read(4) == b"\x00\x00\x00\x00":
+                            extra = 16
+                            next_offset += 8
+                    offset = next_offset
+            else:
+                raise ValueError(f"Unsupported SEQ image format {self.format}")
+        except Exception:
+            self.file.close()
+            raise
+
+    def read(self, index):
+        self.file.seek(self.offsets[index])
+        if self.format in (100, 200):
+            raw = self.file.read(self.image_bytes)
+            channels = self.bits // 8
+            if len(raw) != self.width * self.height * channels:
+                raise ValueError("Unsupported raw SEQ row padding or truncated frame")
+            frame = np.frombuffer(raw, np.uint8).reshape(self.height, self.width, channels)
+            if channels == 1:
+                return np.repeat(frame, 3, axis=2)
+            return frame[:, :, ::-1].copy()
+        length = struct.unpack("<I", self.file.read(4))[0]
+        frame = cv2.imdecode(np.frombuffer(self.file.read(length - 4), np.uint8), cv2.IMREAD_COLOR)
+        if frame is None or frame.shape[:2] != (self.height, self.width):
+            raise ValueError(f"Cannot decode SEQ frame {index}")
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    def close(self):
+        self.file.close()
+
+
+def read_sampled_pairs(path, samples):
+    """Decode original neighbours, never pairs of distant sampled frames."""
+    started = perf_counter()
+    if Path(path).suffix.lower() == ".seq":
+        reader = SeqReader(path)
+        try:
+            indices = sample_indices(reader.frame_count, samples)
+            frames = {int(i): reader.read(int(i)) for i in np.unique(np.r_[indices, indices + 1])}
+            info = dict(frame_count=reader.frame_count, width=reader.width,
+                        height=reader.height, fps=reader.fps)
+        finally:
+            reader.close()
+    else:
+        capture = cv2.VideoCapture(str(path))
+        try:
+            if not capture.isOpened():
+                raise ValueError(f"Cannot open {path}")
+            # Count actual decoded frames, rather than trusting container metadata.
+            count = 0
+            while True:
+                ok, frame = capture.read()
+                if not ok:
+                    break
+                count += 1
+            indices = sample_indices(count, samples)
+            needed = set(map(int, np.r_[indices, indices + 1]))
+            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            frames = {}
+            for i in range(count):
+                ok, frame = capture.read()
+                if not ok:
+                    raise ValueError(f"Decode failure at frame {i}")
+                if i in needed:
+                    frames[i] = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            info = dict(frame_count=count, width=int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                        height=int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)), fps=capture.get(cv2.CAP_PROP_FPS))
+        finally:
+            capture.release()
+    info["sample_indices"] = indices.tolist()
+    info["decode_seconds"] = perf_counter() - started
+    return [(frames[int(i)], frames[int(i + 1)]) for i in indices], info
+
+
+def file_sha256(path):
+    with Path(path).open("rb") as source:
+        return hashlib.file_digest(source, "sha256").hexdigest()
+\end{lstlisting}
+\subsection{Feature extraction and caching}
+This module computes pooled HOG, ResNet and flow vectors, audits data and saves configuration-sensitive caches and original timings.
+
+\begin{lstlisting}[caption={src/olympic\_actions/features.py}]
+"""Four representations, with separate cold extraction and decode timings."""
+import csv
+import hashlib
+from importlib.metadata import version
+import json
+import os
+from pathlib import Path
+from time import perf_counter
+
+import cv2
+import numpy as np
+from skimage.feature import hog
+
+from .data import file_sha256, read_sampled_pairs, write_csv
+
+
+def environment():
+    return {name: version(name) for name in ("numpy", "opencv-python-headless", "scikit-image",
+                                            "scikit-learn", "torch", "torchvision", "matplotlib")}
+
+
+def l2(vector):
+    vector = np.asarray(vector, dtype=np.float32)
+    return vector / max(float(np.linalg.norm(vector)), 1e-8)
+
+
+def grayscale(frame, size):
+    return cv2.cvtColor(cv2.resize(frame, (size, size), interpolation=cv2.INTER_LINEAR), cv2.COLOR_RGB2GRAY)
+
+
+def hog_feature(pairs, config):
+    vectors = [hog(grayscale(first, config.image_size), orientations=config.hog_orientations,
+                   pixels_per_cell=(config.hog_cell_size,) * 2,
+                   cells_per_block=(config.hog_block_cells,) * 2,
+                   block_norm="L2-Hys", feature_vector=True) for first, _ in pairs]
+    return l2(np.mean(vectors, axis=0))
+
+
+def flow_histogram(flow, grid=2, bins=8):
+    magnitude, angle = cv2.cartToPolar(flow[:, :, 0], flow[:, :, 1])
+    ys = np.linspace(0, flow.shape[0], grid + 1, dtype=int)
+    xs = np.linspace(0, flow.shape[1], grid + 1, dtype=int)
+    descriptor = []
+    for row in range(grid):
+        for column in range(grid):
+            cell = np.s_[ys[row]:ys[row + 1], xs[column]:xs[column + 1]]
+            # modulo protects the 2*pi boundary, which belongs to the first bin.
+            hist, _ = np.histogram(angle[cell] % (2 * np.pi), bins=bins,
+                                   range=(0, 2 * np.pi), weights=magnitude[cell])
+            descriptor.extend(hist)
+    return np.asarray(descriptor, dtype=np.float32)
+
+
+def flow_feature(pairs, config):
+    vectors = []
+    for first, second in pairs:
+        flow = cv2.calcOpticalFlowFarneback(
+            grayscale(first, config.image_size), grayscale(second, config.image_size), None,
+            config.flow_pyr_scale, config.flow_levels, config.flow_winsize,
+            config.flow_iterations, config.flow_poly_n, config.flow_poly_sigma, 0)
+        vectors.append(flow_histogram(flow, config.flow_grid, config.flow_bins))
+    return l2(np.mean(vectors, axis=0))
+
+
+class ResNetExtractor:
+    def __init__(self, config, cache_root):
+        import torch
+        from torchvision.models import ResNet18_Weights, resnet18
+        self.torch, self.config = torch, config
+        os.environ.setdefault("TORCH_HOME", str(Path(cache_root).resolve() / "torch"))
+        if config.device not in {"cpu", "cuda", "mps"}:
+            raise ValueError("device must be cpu, cuda or mps")
+        if config.device == "cuda" and not torch.cuda.is_available():
+            raise ValueError("CUDA is unavailable")
+        if config.device == "mps" and not torch.backends.mps.is_available():
+            raise ValueError("MPS is unavailable")
+        torch.manual_seed(config.seed)
+        torch.set_num_threads(1)
+        torch.use_deterministic_algorithms(True)
+        self.device = torch.device(config.device)
+        self.model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+        self.model.fc = torch.nn.Identity()
+        self.model.requires_grad_(False)
+        self.model.eval().to(self.device)
+        self.mean = torch.tensor([0.485, 0.456, 0.406], device=self.device)[None, :, None, None]
+        self.std = torch.tensor([0.229, 0.224, 0.225], device=self.device)[None, :, None, None]
+        # Exclude model setup and one-off kernel warmup from per-clip timing.
+        with torch.inference_mode():
+            self.model(torch.zeros(1, 3, config.image_size, config.image_size, device=self.device))
+        self.sync()
+
+    def sync(self):
+        if self.config.device == "cuda":
+            self.torch.cuda.synchronize()
+        elif self.config.device == "mps":
+            self.torch.mps.synchronize()
+
+    def __call__(self, pairs):
+        torch, config = self.torch, self.config
+        frames = np.stack([cv2.resize(first, (config.image_size, config.image_size),
+                                     interpolation=cv2.INTER_LINEAR) for first, _ in pairs])
+        tensor = torch.from_numpy(frames).permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255
+        tensor = (tensor - self.mean) / self.std
+        with torch.inference_mode():
+            vectors = [self.model(batch).cpu().numpy() for batch in tensor.split(config.resnet_batch_size)]
+        self.sync()
+        return l2(np.concatenate(vectors).mean(axis=0))
+
+
+def extract(clips, config, output, cache_root):
+    output, cache_root = Path(output), Path(cache_root)
+    output.mkdir(parents=True, exist_ok=True)
+    cache_root.mkdir(parents=True, exist_ok=True)
+    cv2.setNumThreads(1)
+    settings = {"config": config.to_dict(), "versions": environment(), "feature_schema": 1}
+    signature = json.dumps(settings, sort_keys=True)
+    log, usable, arrays = [], [], {"hog": [], "resnet": [], "flow": []}
+    times, seen_hashes, extractor = [], {}, None
+    for number, clip in enumerate(clips, 1):
+        row = dict(clip_id=clip.clip_id, label=clip.label, split=clip.split, path=str(clip.path))
+        if not clip.path.exists():
+            log.append({**row, "status": "missing", "error": "File not found"})
+            continue
+        digest = file_sha256(clip.path)
+        if digest in seen_hashes:
+            previous = seen_hashes[digest]
+            # Exclude both members, irrespective of partition/order.
+            previous["status"] = "duplicate"
+            previous["error"] = f"Exact duplicate of {clip.clip_id}"
+            log.append({**row, "status": "duplicate", "error": f"Exact duplicate of {previous['clip_id']}"})
+            continue
+        key = hashlib.sha256((digest + signature).encode()).hexdigest()
+        cached = cache_root / (key + ".npz")
+        try:
+            if cached.exists():
+                with np.load(cached, allow_pickle=False) as saved:
+                    vectors = {name: saved[name].copy() for name in arrays}
+                    info = json.loads(str(saved["info"]))
+            else:
+                pairs, info = read_sampled_pairs(clip.path, config.samples)
+        except (ValueError, OSError, cv2.error) as error:
+            log.append({**row, "status": "decode_failed", "error": str(error)})
+            continue
+        cache_hit = cached.exists()
+        if not cache_hit:
+            if extractor is None:
+                extractor = ResNetExtractor(config, cache_root)
+            vectors = {}
+            for name, function in (("hog", hog_feature), ("flow", flow_feature)):
+                start = perf_counter()
+                vectors[name] = function(pairs, config)
+                info[name + "_seconds"] = perf_counter() - start
+            extractor.sync()
+            start = perf_counter()
+            vectors["resnet"] = extractor(pairs)
+            info["resnet_seconds"] = perf_counter() - start
+            np.savez_compressed(cached, **vectors, info=json.dumps(info))
+        if any(not np.isfinite(vector).all() for vector in vectors.values()):
+            raise ValueError(f"Non-finite descriptor: {clip.clip_id}")
+        audited = {**row, **info, "sha256": digest, "cache_hit": cache_hit, "status": "ok", "error": ""}
+        seen_hashes[digest] = audited
+        log.append(audited)
+        usable.append(clip)
+        for name in arrays:
+            arrays[name].append(vectors[name])
+        times.append([info[name + "_seconds"] for name in ("hog", "resnet", "flow")] + [info["decode_seconds"]])
+        print(f"[{number}/{len(clips)}] {clip.clip_id} ({'cached' if cache_hit else 'extracted'})", flush=True)
+    # Exact duplicates found later must be removed from every configuration.
+    allowed = {row["clip_id"] for row in log if row["status"] == "ok"}
+    keep = [i for i, clip in enumerate(usable) if clip.clip_id in allowed]
+    fields = list(dict.fromkeys(key for row in log for key in row))
+    write_csv(output / "audit.csv", log, fields)
+    if not keep:
+        raise ValueError(f"No usable clips. See {output / 'audit.csv'}")
+    selected = [usable[i] for i in keep]
+    data = {name: np.stack(values)[keep] for name, values in arrays.items()}
+    data.update(clip_ids=np.array([c.clip_id for c in selected]), labels=np.array([c.label for c in selected]),
+                splits=np.array([c.split for c in selected]), times=np.asarray(times)[keep])
+    np.savez_compressed(output / "features.npz", **data)
+    (output / "extraction.json").write_text(json.dumps({
+        **settings, "source_manifest": [dict(clip_id=c.clip_id, label=c.label, split=c.split,
+                                            path=str(c.path)) for c in clips],
+        "usable_clips": len(selected), "excluded_clips": len(clips) - len(selected),
+        "timing_columns": ["hog", "resnet", "flow", "decode"],
+        "timing_note": "Cold per-clip extraction, including resizing/normalisation/pooling; excludes decode, model setup and warmup. Cache hits retain original timings.",
+        "decode_note": "SEQ indexes all frame records, decodes sampled neighbours. Other formats decode sequentially twice to verify actual count.",
+    }, indent=2))
+    return output / "features.npz"
+\end{lstlisting}
+\subsection{Model selection and evaluation}
+All validation searches finish before test evaluation. Class score ordering is explicit, and saved predictions support reproducible metrics.
+
+\begin{lstlisting}[caption={src/olympic\_actions/experiment.py}]
+"""Select C using training-only validation, then optionally evaluate official test."""
+from collections import Counter
+import hashlib
+import json
+from pathlib import Path
+import platform
+from time import perf_counter
+import warnings
+
+import joblib
+import numpy as np
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.metrics import accuracy_score, average_precision_score, confusion_matrix, f1_score
+from sklearn.model_selection import train_test_split
+from sklearn.svm import LinearSVC
+from threadpoolctl import threadpool_limits
+
+from .data import CLASSES, write_csv
+
+METHODS = ("hog", "resnet", "flow", "resnet_flow")
+
+
+def representations(data):
+    return {"hog": data["hog"], "resnet": data["resnet"], "flow": data["flow"],
+            # Each block is already L2 normalised; preserve equal block weights.
+            "resnet_flow": np.concatenate([data["resnet"], data["flow"]], axis=1)}
+
+
+def validation_indices(labels, splits, config, classes=CLASSES):
+    train = np.flatnonzero(splits == "train")
+    test = np.flatnonzero(splits == "test")
+    if set(labels[train]) != set(classes):
+        raise ValueError("Usable training set must contain every class; check audit.csv")
+    fit, validation = train_test_split(train, test_size=config.validation_fraction,
+                                       random_state=config.seed, stratify=labels[train])
+    if set(labels[fit]) != set(classes) or set(labels[validation]) != set(classes):
+        raise ValueError("Every class must occur in both fit and validation subsets")
+    return np.sort(fit), np.sort(validation), train, test
+
+
+def fit_classifier(features, labels, c, config):
+    model = LinearSVC(C=c, multi_class="ovr", dual="auto", max_iter=config.svm_max_iter,
+                      random_state=config.seed)
+    started = perf_counter()
+    with warnings.catch_warnings(), threadpool_limits(limits=1):
+        warnings.simplefilter("error", ConvergenceWarning)
+        model.fit(features, labels)
+    return model, perf_counter() - started
+
+
+def decision_scores(model, features, classes):
+    scores = model.decision_function(features)
+    if scores.ndim == 1:
+        scores = np.column_stack([-scores, scores])
+    columns = [list(model.classes_).index(label) for label in classes]
+    return scores[:, columns]
+
+
+def metrics(labels, scores, classes):
+    if not len(labels) or set(labels) != set(classes):
+        raise ValueError("AP comparison requires examples of every class")
+    if scores.shape != (len(labels), len(classes)) or not np.isfinite(scores).all():
+        raise ValueError("Invalid class decision scores")
+    predicted = np.asarray(classes)[np.argmax(scores, axis=1)]
+    ap = {label: float(average_precision_score(labels == label, scores[:, i]))
+          for i, label in enumerate(classes)}
+    counts = confusion_matrix(labels, predicted, labels=classes)
+    normalised = counts / counts.sum(axis=1, keepdims=True)
+    return dict(mAP=float(np.mean(list(ap.values()))), accuracy=float(accuracy_score(labels, predicted)),
+                macro_f1=float(f1_score(labels, predicted, labels=classes, average="macro", zero_division=0)),
+                per_class_ap=ap, confusion_counts=counts.tolist(),
+                confusion_normalised=normalised.tolist()), predicted
+
+
+def select_c(features, labels, fit, validation, config, classes):
+    candidates, best_c, best_map = [], None, -1.0
+    for c in sorted(set(config.svm_c)):
+        model, seconds = fit_classifier(features[fit], labels[fit], c, config)
+        scores = decision_scores(model, features[validation], classes)
+        result, _ = metrics(labels[validation], scores, classes)
+        candidates.append(dict(C=c, mAP=result["mAP"], accuracy=result["accuracy"],
+                               macro_f1=result["macro_f1"], fit_seconds=seconds))
+        if result["mAP"] > best_map + 1e-12:
+            best_c, best_map = c, result["mAP"]
+    return best_c, candidates
+
+
+def save_confusion(path, matrix, classes, title):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    figure, axis = plt.subplots(figsize=(11, 9))
+    picture = axis.imshow(matrix, vmin=0, vmax=1, cmap="Blues")
+    axis.set_xticks(range(len(classes)), labels=classes, rotation=75, ha="right")
+    axis.set_yticks(range(len(classes)), labels=classes)
+    axis.set(xlabel="Predicted sport", ylabel="True sport", title=title)
+    figure.colorbar(picture, ax=axis, label="Fraction within true class")
+    figure.tight_layout()
+    figure.savefig(path, dpi=160)
+    plt.close(figure)
+
+
+def run_experiment(feature_file, output, config, evaluate_test=False, classes=CLASSES):
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    with np.load(feature_file, allow_pickle=False) as saved:
+        data = {name: saved[name] for name in saved.files}
+    extraction_path = Path(feature_file).with_name("extraction.json")
+    extraction = json.loads(extraction_path.read_text())
+    if extraction["config"] != json.loads(json.dumps(config.to_dict())):
+        raise ValueError("Config differs from cached feature settings; re-extract with the desired config")
+    labels, splits, ids = data["labels"], data["splits"], data["clip_ids"]
+    if len(set(ids)) != len(ids):
+        raise ValueError("Duplicate video IDs in feature bundle")
+    if set(splits) - {"train", "test"}:
+        raise ValueError("Invalid feature partition")
+    if set(labels) - set(classes):
+        raise ValueError("Unknown class in feature bundle")
+    for name in ("hog", "resnet", "flow"):
+        if data[name].ndim != 2 or len(data[name]) != len(ids) or not np.isfinite(data[name]).all():
+            raise ValueError(f"Invalid feature matrix: {name}")
+    fit, validation, train, test = validation_indices(labels, splits, config, classes)
+    if evaluate_test and (not len(test) or set(labels[test]) != set(classes)):
+        raise ValueError("Official test set must contain every class; check audit.csv")
+    write_csv(output / "partitions.csv", [dict(clip_id=ids[i], label=labels[i], official_split=splits[i],
+              selection_subset="fit" if i in set(fit) else "validation" if i in set(validation) else "test")
+              for i in range(len(ids))])
+    matrix = representations(data)
+    validation_results, summary, prediction_rows = {}, [], []
+    all_metrics, all_predictions = {}, {}
+    for name, features in matrix.items():
+        chosen_c, candidates = select_c(features, labels, fit, validation, config, classes)
+        validation_results[name] = {"selected_C": chosen_c, "candidates": candidates}
+        print(f"{name}: selected C={chosen_c} using validation mAP", flush=True)
+    # Finish ALL model selection before looking at ANY test score.
+    (output / "validation.json").write_text(json.dumps(validation_results, indent=2))
+    with Path(feature_file).open("rb") as source:
+        feature_digest = hashlib.file_digest(source, "sha256").hexdigest()
+    (output / "protocol.json").write_text(json.dumps({
+        "config": config.to_dict(), "classes": list(classes), "extraction": extraction,
+        "feature_sha256": feature_digest,
+        "hardware": {"platform": platform.platform(), "processor": platform.processor(),
+                     "python": platform.python_version(), "device": config.device, "cpu_threads": 1},
+        "class_counts": {split: dict(Counter(labels[splits == split])) for split in ("train", "test")},
+        "selection_counts": {"fit": len(fit), "validation": len(validation)},
+        "test_evaluated": evaluate_test,
+    }, indent=2))
+    if not evaluate_test:
+        return validation_results
+    for name, features in matrix.items():
+        chosen_c = validation_results[name]["selected_C"]
+        model, train_seconds = fit_classifier(features[train], labels[train], chosen_c, config)
+        with threadpool_limits(limits=1):
+            started = perf_counter()
+            scores = decision_scores(model, features[test], classes)
+            inference = (perf_counter() - started) / len(test)
+        result, predicted = metrics(labels[test], scores, classes)
+        all_metrics[name], all_predictions[name] = result, predicted
+        joblib.dump({"classifier": model, "classes": classes, "method": name,
+                     "config": config.to_dict()}, output / (name + ".joblib"))
+        (output / (name + "_metrics.json")).write_text(json.dumps(result, indent=2))
+        save_confusion(output / (name + "_confusion.png"), result["confusion_normalised"], classes, name)
+        write_csv(output / (name + "_confusion.csv"),
+                  [dict(true_class=label, **dict(zip(classes, result["confusion_normalised"][i])))
+                   for i, label in enumerate(classes)])
+        # All rows use the same set of usable test clips. Cold original timings
+        # are preserved in caches; fusion reuses B/C and does not re-extract them.
+        time_columns = {"hog": [0], "resnet": [1], "flow": [2], "resnet_flow": [1, 2]}[name]
+        extraction_seconds = data["times"][test][:, time_columns].sum(axis=1)
+        decode_seconds = data["times"][test, 3]
+        summary.append(dict(method=name, C=chosen_c, test_clips=len(test), mAP=result["mAP"],
+                            accuracy=result["accuracy"], macro_f1=result["macro_f1"],
+                            extraction_seconds_per_clip=float(extraction_seconds.mean()),
+                            extraction_median_seconds=float(np.median(extraction_seconds)),
+                            decode_seconds_per_clip=float(decode_seconds.mean()),
+                            classifier_fit_seconds=train_seconds,
+                            cached_inference_seconds_per_clip=inference,
+                            estimated_full_seconds_per_clip=float((extraction_seconds + decode_seconds).mean()) + inference))
+        for j, i in enumerate(test):
+            prediction_rows.append(dict(method=name, clip_id=ids[i], true_label=labels[i],
+                                        predicted_label=predicted[j], **dict(zip(classes, scores[j].tolist()))))
+    write_csv(output / "summary.csv", summary)
+    write_csv(output / "predictions.csv", prediction_rows)
+    write_csv(output / "per_class_ap.csv", [dict(label=label, test_count=int(np.sum(labels[test] == label)),
+              **{name: all_metrics[name]["per_class_ap"][label] for name in METHODS}) for label in classes])
+    majority = sorted(Counter(labels[train]).items(), key=lambda pair: (-pair[1], pair[0]))[0][0]
+    (output / "research_questions.json").write_text(json.dumps({
+        "RQ1": {"comparison": "resnet_flow - resnet", "delta_mAP": all_metrics["resnet_flow"]["mAP"] - all_metrics["resnet"]["mAP"],
+                "delta_accuracy": all_metrics["resnet_flow"]["accuracy"] - all_metrics["resnet"]["accuracy"]},
+        "RQ2": {"comparison": "resnet - hog", "delta_mAP": all_metrics["resnet"]["mAP"] - all_metrics["hog"]["mAP"],
+                "delta_extraction_seconds_per_clip": summary[1]["extraction_seconds_per_clip"] - summary[0]["extraction_seconds_per_clip"]},
+        "majority_baseline": {"label_from_train": majority, "test_accuracy": float(np.mean(labels[test] == majority))},
+    }, indent=2))
+    # Prioritise errors on which B and D disagree, with class diversity.
+    candidates = []
+    for j, i in enumerate(test):
+        b, d = all_predictions["resnet"][j], all_predictions["resnet_flow"][j]
+        if b != labels[i] or d != labels[i]:
+            candidates.append(dict(clip_id=ids[i], true_label=labels[i], resnet_prediction=b,
+                                   fusion_prediction=d, models_disagree=bool(b != d), manual_observation=""))
+    candidates.sort(key=lambda row: (not row["models_disagree"], row["true_label"], row["clip_id"]))
+    chosen, seen = [], set()
+    for row in candidates:
+        if row["true_label"] not in seen and len(chosen) < 10:
+            chosen.append(row)
+            seen.add(row["true_label"])
+    for row in candidates:
+        if len(chosen) >= 10:
+            break
+        if row not in chosen:
+            chosen.append(row)
+    write_csv(output / "error_review.csv", chosen,
+              ["clip_id", "true_label", "resnet_prediction", "fusion_prediction", "models_disagree", "manual_observation"])
+    if extraction.get("source_manifest"):
+        from .error_gallery import save_error_gallery
+        save_error_gallery(chosen, extraction["source_manifest"], output, config.samples)
+    return summary
+\end{lstlisting}
+\subsection{Prediction from saved models}
+Prediction reloads the recorded configuration and class order before applying the selected representation to a clip.
+
+\begin{lstlisting}[caption={src/olympic\_actions/predict.py}]
+import json
+from pathlib import Path
+from time import perf_counter
+
+import joblib
+import numpy as np
+
+from .config import Config
+from .data import read_sampled_pairs
+from .experiment import decision_scores
+from .features import ResNetExtractor, flow_feature, hog_feature
+
+
+def predict(video, model_file, cache_root):
+    # Models must have been generated locally by this pipeline: joblib uses pickle.
+    saved = joblib.load(model_file)
+    config = Config(**saved["config"])
+    pairs, info = read_sampled_pairs(video, config.samples)
+    method = saved["method"]
+    extractor = ResNetExtractor(config, cache_root) if method in {"resnet", "resnet_flow"} else None
+    started = perf_counter()
+    if method == "hog":
+        feature = hog_feature(pairs, config)
+    elif method == "flow":
+        feature = flow_feature(pairs, config)
+    elif method == "resnet":
+        feature = extractor(pairs)
+    elif method == "resnet_flow":
+        feature = np.r_[extractor(pairs), flow_feature(pairs, config)]
+    else:
+        raise ValueError(f"Unknown model method: {method}")
+    scores = decision_scores(saved["classifier"], feature[None], saved["classes"])[0]
+    return {"video": str(Path(video).resolve()), "method": method,
+            "predicted_label": saved["classes"][int(np.argmax(scores))],
+            "decision_scores": dict(zip(saved["classes"], scores.tolist())),
+            "extraction_and_svm_seconds": perf_counter() - started, **info}
+\end{lstlisting}
+\subsection{Error visualisation}
+The gallery links model errors to original sampled frames, identifiers and dataset attribution.
+
+\begin{lstlisting}[caption={src/olympic\_actions/error\_gallery.py}]
+"""Render actual sampled frames for manual inspection; do not infer causes."""
+from pathlib import Path
+import math
+
+from .data import read_sampled_pairs
+
+
+def save_error_gallery(rows, manifest, output, samples):
+    if not rows:
+        return
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    paths = {row["clip_id"]: row["path"] for row in manifest}
+    columns = 2
+    figure, axes = plt.subplots(math.ceil(len(rows) / columns), columns,
+                                figsize=(13, 4 * math.ceil(len(rows) / columns)), squeeze=False)
+    for axis in axes.flat:
+        axis.axis("off")
+    for axis, row in zip(axes.flat, rows):
+        pairs, info = read_sampled_pairs(paths[row["clip_id"]], samples)
+        middle = len(pairs) // 2
+        axis.imshow(pairs[middle][0])
+        clip = row["clip_id"].split("/")[-1]
+        axis.set_title(f"True: {row['true_label']} | frame {info['sample_indices'][middle]}\n"
+                       f"B: {row['resnet_prediction']} | D: {row['fusion_prediction']}\n"
+                       f"Stanford Olympic Sports / YouTube: {clip}", fontsize=9)
+    figure.tight_layout()
+    figure.savefig(Path(output) / "error_frames.png", dpi=150)
+    plt.close(figure)
+\end{lstlisting}
+\subsection{Command line interface}
+Commands expose preparation, extraction, validation, final evaluation and clip prediction.
+
+\begin{lstlisting}[caption={src/olympic\_actions/cli.py}]
+import argparse
+import json
+from pathlib import Path
+
+from .config import Config
+from .data import load_manifest, official_manifest
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Olympic Sports: four fixed representations + linear SVM")
+    commands = parser.add_subparsers(dest="command", required=True)
+    prepare = commands.add_parser("prepare", help="Build manifest using official per-class train/test lists")
+    prepare.add_argument("--videos", type=Path, default=Path("data/videos"))
+    prepare.add_argument("--splits", type=Path, default=Path("data/splits"))
+    prepare.add_argument("--output", type=Path, default=Path("data/manifest.csv"))
+    extract = commands.add_parser("extract", help="Audit clips and cache HOG, ResNet and flow descriptors")
+    extract.add_argument("--manifest", type=Path, default=Path("data/manifest.csv"))
+    extract.add_argument("--output", type=Path, default=Path("runs/features_k10"))
+    extract.add_argument("--cache", type=Path, default=Path(".cache/features"))
+    extract.add_argument("--config", type=Path, default=Path("configs/baseline.json"))
+    experiment = commands.add_parser("experiment", help="Select C; optionally fit full train and evaluate test")
+    experiment.add_argument("--features", type=Path, default=Path("runs/features_k10/features.npz"))
+    experiment.add_argument("--output", type=Path, default=Path("runs/baseline"))
+    experiment.add_argument("--config", type=Path, default=Path("configs/baseline.json"))
+    experiment.add_argument("--evaluate-test", action="store_true",
+                            help="Evaluate official test after all validation model selection has finished")
+    inference = commands.add_parser("predict", help="Classify a new clip using a locally trained model")
+    inference.add_argument("video", type=Path)
+    inference.add_argument("--model", type=Path, default=Path("runs/baseline/resnet_flow.joblib"))
+    inference.add_argument("--cache", type=Path, default=Path(".cache/features"))
+    args = parser.parse_args()
+    try:
+        if args.command == "prepare":
+            clips = official_manifest(args.videos, args.splits, args.output)
+            print(f"Saved {len(clips)} official entries to {args.output}")
+        elif args.command == "extract":
+            from .features import extract
+            extract(load_manifest(args.manifest), Config.load(args.config), args.output, args.cache)
+        elif args.command == "experiment":
+            from .experiment import run_experiment
+            run_experiment(args.features, args.output, Config.load(args.config), args.evaluate_test)
+        else:
+            from .predict import predict
+            print(json.dumps(predict(args.video, args.model, args.cache), indent=2))
+    except (ValueError, OSError) as error:
+        parser.exit(1, f"Error: {error}\n")
+
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+\subsection{Package initialisation}
+The package initialisation records the implementation version.
+
+\begin{lstlisting}[caption={src/olympic\_actions/\_\_init\_\_.py}]
+"""Olympic Sports video classification experiments."""
+
+__version__ = "0.1.0"
+\end{lstlisting}
+\subsection{Module entry point}
+This file supports invoking the command interface through Python.
+
+\begin{lstlisting}[caption={src/olympic\_actions/\_\_main\_\_.py}]
+from .cli import main
+
+main()
+\end{lstlisting}
+\subsection{Dataset download}
+The downloader obtains official archives, validates extraction destinations and records provenance checksums.
+
+\begin{lstlisting}[caption={scripts/download\_dataset.py}]
+"""Download the official Stanford release; retain archives for reproducibility."""
+import argparse
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import json
+from pathlib import Path
+import urllib.request
+import zipfile
+
+BASE = "http://vision.stanford.edu/Datasets/OlympicSports/"
+CLASSES = (
+    "basketball_layup", "bowling", "clean_and_jerk", "discus_throw",
+    "hammer_throw", "high_jump", "javelin_throw", "long_jump",
+    "diving_platform_10m", "pole_vault", "shot_put", "snatch",
+    "diving_springboard_3m", "tennis_serve", "triple_jump", "vault",
+)
+
+
+def fetch(name, root):
+    archive = root / "downloads" / (name + ".zip")
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    if not archive.exists():
+        partial = archive.with_suffix(".zip.part")
+        print(f"Downloading {BASE}{name}.zip", flush=True)
+        with urllib.request.urlopen(BASE + name + ".zip", timeout=120) as response:
+            with partial.open("wb") as output:
+                while chunk := response.read(1024 * 1024):
+                    output.write(chunk)
+        partial.replace(archive)
+    destination = root / ("splits" if name == "train_test_split" else "videos")
+    destination.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as zipped:
+        for member in zipped.infolist():
+            target = (destination / member.filename).resolve()
+            if not target.is_relative_to(destination.resolve()):
+                raise ValueError(f"Unsafe archive entry: {member.filename}")
+        zipped.extractall(destination)
+    with archive.open("rb") as source:
+        digest = hashlib.file_digest(source, "sha256").hexdigest()
+    print(f"Ready: {name}", flush=True)
+    return {"archive": archive.name, "url": BASE + name + ".zip",
+            "bytes": archive.stat().st_size, "sha256": digest}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path("data"))
+    parser.add_argument("--classes", nargs="+", choices=CLASSES, default=list(CLASSES))
+    parser.add_argument("--workers", type=int, default=4)
+    args = parser.parse_args()
+    if args.workers < 1:
+        parser.error("--workers must be positive")
+    records = [fetch("train_test_split", args.root)]
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        records.extend(pool.map(lambda name: fetch(name, args.root), args.classes))
+    (args.root / "download_provenance.json").write_text(json.dumps(records, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+\subsection{Pipeline entry script}
+The entry script connects the data manifest, feature extraction and evaluation stages.
+
+\begin{lstlisting}[caption={scripts/run\_pipeline.py}]
+"""Run the official four-method comparison from the repository directory."""
+import argparse
+from pathlib import Path
+
+from olympic_actions.config import Config
+from olympic_actions.data import official_manifest
+from olympic_actions.experiment import run_experiment
+from olympic_actions.features import extract
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--download", action="store_true", help="Download all official data first")
+    parser.add_argument("--config", type=Path, default=Path("configs/baseline.json"))
+    parser.add_argument("--data", type=Path, default=Path("data"))
+    parser.add_argument("--features-output", type=Path, default=Path("runs/features_k10"))
+    parser.add_argument("--output", type=Path, default=Path("runs/baseline"))
+    parser.add_argument("--evaluate-test", action="store_true")
+    args = parser.parse_args()
+    if args.download:
+        from concurrent.futures import ThreadPoolExecutor
+        import json
+        from download_dataset import CLASSES, fetch
+        records = [fetch("train_test_split", args.data)]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            records.extend(pool.map(lambda name: fetch(name, args.data), CLASSES))
+        (args.data / "download_provenance.json").write_text(json.dumps(records, indent=2))
+    clips = official_manifest(args.data / "videos", args.data / "splits", args.data / "manifest.csv")
+    config = Config.load(args.config)
+    features = extract(clips, config, args.features_output, Path(".cache/features"))
+    run_experiment(features, args.output, config, args.evaluate_test)
+
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+\subsection{Automated tests}
+These synthetic tests verify implementation behaviour, including sequence formats, sampling, metrics and validation isolation. They do not provide research performance results.
+
+\begin{lstlisting}[caption={tests/test\_pipeline.py}]
+import json
+from pathlib import Path
+import struct
+
+import cv2
+import numpy as np
+import pytest
+
+from olympic_actions.config import Config
+from olympic_actions.data import Clip, SeqReader, load_manifest, official_manifest, read_sampled_pairs, sample_indices, write_csv
+from olympic_actions.experiment import decision_scores, metrics, run_experiment, select_c, validation_indices
+from olympic_actions.features import flow_feature, flow_histogram, hog_feature, l2
+
+
+def make_seq(path, compressed=True, padding=8, count=7):
+    height, width = 32, 48
+    header = bytearray(1024)
+    struct.pack_into("<I", header, 0, 0xFEED)
+    header[4:24] = "Norpix seq".encode("utf-16-le")
+    struct.pack_into("<II", header, 28, 3, 1024)
+    image_bytes = height * width * 3
+    stride = image_bytes + 8
+    struct.pack_into("<9I", header, 548, width, height, 24, 8, image_bytes,
+                     102 if compressed else 100, count, 0, stride)
+    struct.pack_into("<d", header, 584, 30.0)
+    expected = []
+    with path.open("wb") as output:
+        output.write(header)
+        for i in range(count):
+            frame = np.full((height, width, 3), (i * 20, 10, 200), dtype=np.uint8)
+            expected.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            if compressed:
+                ok, encoded = cv2.imencode(".jpg", frame)
+                assert ok
+                output.write(struct.pack("<I", len(encoded) + 4))
+                output.write(encoded.tobytes())
+                output.write(struct.pack("<IHH", i, 0, 0) + b"\0" * (padding - 8))
+            else:
+                output.write(frame.tobytes())
+                output.write(struct.pack("<IHH", i, 0, 0))
+    return expected
+
+
+@pytest.mark.parametrize("count,samples", [(2, 10), (4, 10), (11, 10), (100, 10), (100, 5)])
+def test_sampling_uses_unique_valid_original_neighbours(count, samples):
+    indices = sample_indices(count, samples)
+    assert len(indices) == min(samples, count - 1)
+    assert len(set(indices)) == len(indices)
+    assert min(indices) == 0 and max(indices) + 1 < count
+
+
+@pytest.mark.parametrize("compressed,padding", [(True, 8), (True, 16), (False, 8)])
+def test_seq_layout_and_adjacent_sampling(tmp_path, compressed, padding):
+    path = tmp_path / "example.seq"
+    expected = make_seq(path, compressed, padding)
+    pairs, info = read_sampled_pairs(path, 3)
+    assert info["sample_indices"] == [0, 2, 5]
+    assert info["frame_count"] == 7
+    for (first, second), index in zip(pairs, info["sample_indices"]):
+        np.testing.assert_allclose(first, expected[index], atol=3)
+        np.testing.assert_allclose(second, expected[index + 1], atol=3)
+
+
+def test_seq_rejects_truncated_stream(tmp_path):
+    path = tmp_path / "truncated.seq"
+    make_seq(path)
+    path.write_bytes(path.read_bytes()[:-30])
+    with pytest.raises(ValueError, match="Invalid SEQ frame length"):
+        SeqReader(path)
+
+
+def test_short_clip_rejected(tmp_path):
+    path = tmp_path / "one.seq"
+    make_seq(path, count=1)
+    with pytest.raises(ValueError, match="two"):
+        read_sampled_pairs(path, 10)
+
+
+def test_flow_votes_for_rightward_motion_and_weights_magnitude():
+    flow = np.zeros((8, 8, 2), np.float32)
+    flow[:, :, 0] = 2
+    histogram = flow_histogram(flow).reshape(4, 8)
+    np.testing.assert_allclose(histogram[:, 0], 32)
+    assert np.count_nonzero(histogram[:, 1:]) == 0
+    flow[:, :, 0] = 0
+    flow[:, :, 1] = -1
+    histogram = flow_histogram(flow).reshape(4, 8)
+    assert np.count_nonzero(histogram) == 4
+    assert np.all(histogram[:, 6] > 0)
+
+
+def test_zero_motion_and_hog_are_finite():
+    frame = np.zeros((64, 64, 3), dtype=np.uint8)
+    config = Config()
+    flow = flow_feature([(frame, frame)], config)
+    hog = hog_feature([(frame, frame)], config)
+    assert flow.shape == (32,) and hog.shape == (6084,)
+    assert np.isfinite(flow).all() and np.isfinite(hog).all()
+    assert not np.any(flow)
+    np.testing.assert_array_equal(l2(np.zeros(5)), np.zeros(5))
+
+
+def test_manifest_blocks_duplicate_ids_paths_and_partition_overlap(tmp_path):
+    manifest = tmp_path / "manifest.csv"
+    write_csv(manifest, [dict(clip_id="a", path="x.seq", label="high_jump", split="train"),
+                         dict(clip_id="b", path="x.seq", label="high_jump", split="test")])
+    with pytest.raises(ValueError, match="Duplicate"):
+        load_manifest(manifest)
+
+
+def synthetic_features():
+    classes = ("basketball_layup", "bowling", "clean_and_jerk")
+    labels = np.repeat(classes, 15)
+    splits = np.tile(["train"] * 12 + ["test"] * 3, 3)
+    rng = np.random.default_rng(42)
+    features = np.eye(3)[np.repeat(np.arange(3), 15)] + rng.normal(0, 0.04, (45, 3))
+    features = np.stack([l2(row) for row in features])
+    return classes, labels, splits, features
+
+
+def test_test_labels_cannot_change_validation_split_or_selected_c():
+    classes, labels, splits, features = synthetic_features()
+    config = Config()
+    fit, validation, _, test = validation_indices(labels, splits, config, classes)
+    assert not set(fit) & set(validation)
+    assert not (set(fit) | set(validation)) & set(test)
+    first, _ = select_c(features, labels, fit, validation, config, classes)
+    altered = labels.copy()
+    altered[test] = "anything"
+    fit2, validation2, _, _ = validation_indices(altered, splits, config, classes)
+    second, _ = select_c(features, altered, fit2, validation2, config, classes)
+    np.testing.assert_array_equal(fit, fit2)
+    np.testing.assert_array_equal(validation, validation2)
+    assert first == second == 0.01  # equal validation mAP => smallest C
+
+
+def test_average_precision_uses_scores_and_class_column_order():
+    classes = ("bowling", "high_jump", "long_jump")
+    labels = np.array(["bowling", "high_jump", "long_jump"] * 2)
+    scores = np.eye(3)[[0, 1, 2, 0, 1, 2]]
+    result, predicted = metrics(labels, scores, classes)
+    assert result["mAP"] == result["accuracy"] == result["macro_f1"] == 1
+    np.testing.assert_array_equal(predicted, labels)
+    class Model:
+        classes_ = np.array(classes[::-1])
+        def decision_function(self, x):
+            return scores[:, ::-1]
+    np.testing.assert_array_equal(decision_scores(Model(), scores, classes), scores)
+
+
+def test_end_to_end_classifiers_export_expected_artifacts(tmp_path, monkeypatch):
+    monkeypatch.setenv("MPLCONFIGDIR", str(tmp_path / "matplotlib"))
+    classes, labels, splits, features = synthetic_features()
+    config = Config()
+    bundle = tmp_path / "features.npz"
+    np.savez(bundle, hog=features, resnet=features, flow=features, labels=labels, splits=splits,
+             clip_ids=np.array([f"clip_{i}" for i in range(len(labels))]), times=np.ones((len(labels), 4)))
+    extraction = dict(config=json.loads(json.dumps(config.to_dict())))
+    (tmp_path / "extraction.json").write_text(json.dumps(extraction))
+    summary = run_experiment(bundle, tmp_path / "result", config, True, classes)
+    assert len(summary) == 4 and all(row["mAP"] == 1 for row in summary)
+    assert summary[-1]["extraction_seconds_per_clip"] == 2
+    for name in ("summary.csv", "predictions.csv", "partitions.csv", "error_review.csv",
+                 "research_questions.json", "per_class_ap.csv", "resnet_confusion.png", "resnet.joblib"):
+        assert (tmp_path / "result" / name).exists()
+
+
+def test_validation_mode_never_exports_test_predictions(tmp_path, monkeypatch):
+    classes, labels, splits, features = synthetic_features()
+    config = Config()
+    bundle = tmp_path / "features.npz"
+    np.savez(bundle, hog=features, resnet=features, flow=features, labels=labels, splits=splits,
+             clip_ids=np.array([f"clip_{i}" for i in range(len(labels))]), times=np.ones((len(labels), 4)))
+    (tmp_path / "extraction.json").write_text(json.dumps(dict(config=json.loads(json.dumps(config.to_dict())))))
+    run_experiment(bundle, tmp_path / "result", config, False, classes)
+    assert not (tmp_path / "result" / "predictions.csv").exists()
+    assert not json.loads((tmp_path / "result" / "protocol.json").read_text())["test_evaluated"]
+
+
+def fake_resnet(monkeypatch):
+    from olympic_actions import features
+    class Extractor:
+        calls = 0
+        def __init__(self, config, cache):
+            pass
+        def sync(self):
+            pass
+        def __call__(self, pairs):
+            Extractor.calls += 1
+            return np.ones(512, dtype=np.float32) / np.sqrt(512)
+    monkeypatch.setattr(features, "ResNetExtractor", Extractor)
+    return Extractor
+
+
+def test_cache_reuses_original_timings_and_invalidates_changed_settings(tmp_path, monkeypatch):
+    from olympic_actions.features import extract
+    model = fake_resnet(monkeypatch)
+    path = tmp_path / "clip.seq"
+    make_seq(path)
+    clips = [Clip("example", path, "bowling", "train")]
+    output, cache = tmp_path / "output", tmp_path / "cache"
+    extract(clips, Config(), output, cache)
+    with np.load(output / "features.npz") as saved:
+        first_times = saved["times"].copy()
+    extract(clips, Config(), output, cache)
+    assert model.calls == 1
+    with np.load(output / "features.npz") as saved:
+        np.testing.assert_array_equal(first_times, saved["times"])
+    extract(clips, Config(samples=5), output, cache)
+    assert model.calls == 2 and len(list(cache.glob("*.npz"))) == 2
+
+
+def test_exact_duplicate_content_is_excluded_from_all_methods(tmp_path, monkeypatch):
+    from olympic_actions.features import extract
+    fake_resnet(monkeypatch)
+    first, duplicate, other = (tmp_path / name for name in ("first.seq", "duplicate.seq", "other.seq"))
+    make_seq(first)
+    duplicate.write_bytes(first.read_bytes())
+    make_seq(other, count=8)
+    clips = [Clip("first", first, "bowling", "train"), Clip("duplicate", duplicate, "bowling", "test"),
+             Clip("other", other, "bowling", "train")]
+    output = tmp_path / "output"
+    extract(clips, Config(), output, tmp_path / "cache")
+    with np.load(output / "features.npz") as saved:
+        assert saved["clip_ids"].tolist() == ["other"]
+        assert all(len(saved[name]) == 1 for name in ("hog", "resnet", "flow"))
+    import csv
+    with (output / "audit.csv").open() as source:
+        audit = list(csv.DictReader(source))
+    assert [row["status"] for row in audit] == ["duplicate", "duplicate", "ok"]
+
+
+def test_missing_class_does_not_produce_misleading_map():
+    labels = np.array(["bowling", "bowling"])
+    with pytest.raises(ValueError, match="every class"):
+        metrics(labels, np.ones((2, 3)), ("bowling", "high_jump", "long_jump"))
+
+
+def test_official_platform_archive_typo_maps_to_correct_split_label(tmp_path):
+    videos = tmp_path / "videos" / "diving_platfrom_10m"
+    videos.mkdir(parents=True)
+    (videos / "train_clip.seq").touch()
+    (videos / "test_clip.seq").touch()
+    for split in ("train", "test"):
+        folder = tmp_path / "splits" / split
+        folder.mkdir(parents=True)
+        (folder / "platform 10m.txt").write_text(f"{split}_clip\n")
+    clips = official_manifest(tmp_path / "videos", tmp_path / "splits", tmp_path / "manifest.csv")
+    assert [clip.label for clip in clips] == ["diving_platform_10m"] * 2
+    assert all(clip.path.exists() for clip in clips)
+\end{lstlisting}
+\end{document}
